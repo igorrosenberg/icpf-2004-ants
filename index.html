@@ -1,0 +1,1823 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body>
+<title>Ambiant Arena</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: three-pane workbench. Setup rail on the left, the hex map stage in the middle, scoreboard and charts on the right. */
+:root {
+  --bg: #eceee7; --panel: #f7f8f3; --line: #d3d7ca; --fg: #1c2119; --muted: #5d6656; --accent: #2f6a45; --accent-ink: #ffffff; --accent-soft: #dce8dd;
+  --red: #c2392c; --black: #22262c; --warn: #9a5a00; --bad: #b3261e;
+  --m-outer: #e3e5dc; --m-grid: #c9c3ab; --m-ground: #ddd6bf; --m-rock: #7b7566; --m-hill-red: #ebbcab; --m-hill-black: #b4b6ae;
+  --m-food: #cf950f; --m-food-ink: #2f2100; --m-black-ant: #16181c; --m-ant-edge: #fffdf4; --m-fog: rgba(36, 40, 30, 0.52);
+  --m-red-mark: rgba(194, 57, 44, 0.18); --m-black-mark: rgba(22, 24, 28, 0.16); --m-black-pip: #16181c; --m-select: #1f7a46;
+  --f-display: "Bricolage Grotesque", "Archivo", system-ui, sans-serif;
+  --f-body: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121510; --panel: #191d16; --line: #2c3227; --fg: #e3e7da; --muted: #97a18c; --accent: #82c595; --accent-ink: #0d1a11; --accent-soft: #22352a;
+    --red: #ff7262; --black: #c3cad6; --warn: #e2a64a; --bad: #ff7d72;
+    --m-outer: #0e100c; --m-grid: #1f1d17; --m-ground: #2c2921; --m-rock: #5d5848; --m-hill-red: #5b2a23; --m-hill-black: #3a3e46;
+    --m-food: #e8ae2c; --m-food-ink: #2a1d00; --m-black-ant: #0b0c0e; --m-ant-edge: #e6e4d7; --m-fog: rgba(4, 5, 3, 0.5);
+    --m-red-mark: rgba(255, 114, 98, 0.20); --m-black-mark: rgba(195, 202, 214, 0.16); --m-black-pip: #c3cad6; --m-select: #82c595;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121510; --panel: #191d16; --line: #2c3227; --fg: #e3e7da; --muted: #97a18c; --accent: #82c595; --accent-ink: #0d1a11; --accent-soft: #22352a;
+  --red: #ff7262; --black: #c3cad6; --warn: #e2a64a; --bad: #ff7d72;
+  --m-outer: #0e100c; --m-grid: #1f1d17; --m-ground: #2c2921; --m-rock: #5d5848; --m-hill-red: #5b2a23; --m-hill-black: #3a3e46;
+  --m-food: #e8ae2c; --m-food-ink: #2a1d00; --m-black-ant: #0b0c0e; --m-ant-edge: #e6e4d7; --m-fog: rgba(4, 5, 3, 0.5);
+  --m-red-mark: rgba(255, 114, 98, 0.20); --m-black-mark: rgba(195, 202, 214, 0.16); --m-black-pip: #c3cad6; --m-select: #82c595;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 14px; line-height: 1.4; }
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app {
+  height: 100%; display: grid; gap: 12px;
+  grid-template-columns: 290px minmax(0, 1fr) 300px; grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "top top top" "setup stage stats";
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px;
+}
+.top { grid-area: top; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.top h1 { font-family: var(--f-display); font-weight: 800; font-size: 26px; letter-spacing: -0.02em; margin: 0; }
+.top h1 .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-left: 4px; vertical-align: 2px; }
+.top .sub { color: var(--muted); font-size: 13px; }
+.top .spacer { flex: 1; }
+.top a { color: var(--accent); }
+
+.rail { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.setup { grid-area: setup; } .stats { grid-area: stats; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.box h2 { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field > label, .lbl { font-size: 12px; color: var(--muted); }
+.row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.row > select, .row > input { flex: 1; min-width: 0; }
+.swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1px solid var(--line); }
+.sw-red { background: var(--red); } .sw-black { background: var(--black); }
+select, input[type="number"], input[type="text"], textarea {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+}
+textarea { font-family: var(--f-mono); font-size: 12.5px; line-height: 1.45; resize: vertical; width: 100%; }
+.btn { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.small { padding: 3px 8px; font-size: 12.5px; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.err { color: var(--bad); font-size: 12.5px; font-family: var(--f-mono); white-space: pre-wrap; margin: 0; }
+.ok { color: var(--accent); font-size: 12.5px; margin: 0; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+details.notes summary { cursor: pointer; font-size: 12.5px; color: var(--muted); }
+details.notes ul { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); display: grid; gap: 4px; }
+
+.stage { grid-area: stage; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.viewbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel); padding: 5px 10px; cursor: pointer; border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.zoomlbl { font-family: var(--f-mono); font-size: 12px; color: var(--muted); min-width: 64px; text-align: center; }
+.mapwrap { position: relative; flex: 1; min-height: 280px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--m-outer); touch-action: none; }
+#map { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+#map.dragging { cursor: grabbing; }
+.busy { position: absolute; left: 12px; bottom: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-family: var(--f-mono); font-size: 12px; display: flex; gap: 8px; align-items: center; }
+.busy .bar { width: 120px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.busy .bar i { display: block; height: 100%; background: var(--accent); width: 0; }
+.legend { position: absolute; right: 10px; top: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 11.5px; color: var(--muted); display: grid; grid-template-columns: auto auto; gap: 3px 8px; align-items: center; opacity: 0.94; }
+.legend i { width: 10px; height: 10px; display: inline-block; border-radius: 2px; }
+
+.transport { display: flex; flex-direction: column; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.tbtns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tbtns .btn { min-width: 34px; font-family: var(--f-mono); }
+.roundlbl { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 13px; margin-left: auto; }
+.roundlbl b { font-size: 15px; }
+#scrub { width: 100%; accent-color: var(--accent); }
+.scrubwrap { position: relative; }
+.frontier { height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.frontier i { display: block; height: 100%; background: var(--muted); width: 0; }
+
+.score { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.team { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.team .name { display: flex; gap: 6px; align-items: center; font-weight: 600; font-size: 13px; }
+.team .name span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team .big { font-family: var(--f-display); font-weight: 800; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+.team .big small { font-family: var(--f-body); font-weight: 400; font-size: 12px; color: var(--muted); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; font-size: 12.5px; color: var(--muted); }
+.kv b { color: var(--fg); font-weight: 500; font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.verdict { font-size: 13px; padding: 6px 8px; border-radius: 6px; background: var(--accent-soft); }
+.chart { width: 100%; height: 130px; display: block; }
+.inspect { font-family: var(--f-mono); font-size: 12px; display: grid; gap: 2px; }
+.inspect .k { color: var(--muted); }
+.inspect code { background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+.duel table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.duel td, .duel th { padding: 3px 4px; border-bottom: 1px solid var(--line); text-align: left; }
+.duel th { color: var(--muted); font-weight: 500; }
+.duel td.n { text-align: right; font-family: var(--f-mono); }
+
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 16px; padding-top: max(16px, env(safe-area-inset-top, 0px)); padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); }
+.dialog { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; width: min(760px, 100%); max-height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 16px; overflow: auto; }
+.dialog h3 { margin: 0; font-family: var(--f-display); font-size: 20px; }
+.dialog textarea { min-height: 320px; flex: 1; }
+
+@media (max-width: 1180px) {
+  .app { height: auto; grid-template-columns: 280px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "top top" "setup stage" "stats stats"; }
+  .stage { min-height: 640px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; overflow: visible; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "setup" "stats"; }
+  .setup { overflow: visible; }
+  .stage { min-height: 0; }
+  .mapwrap { flex: none; height: 62vh; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="app">
+  <header class="top">
+    <h1>Ambiant Arena<span class="dot sw-red"></span><span class="dot sw-black"></span></h1>
+    <span class="sub">Simulator for the ICFP 2004 contest, “Dinner with Ambiants”. Two brains, one hex world, 100,000 rounds.</span>
+    <span class="spacer"></span>
+    <a class="sub" href="https://www.cis.upenn.edu/~plclub/contest/ants.html" target="_blank" rel="noopener">Read the rules</a>
+  </header>
+
+  <aside class="rail setup">
+    <section class="box">
+      <h2>Colonies</h2>
+      <div class="field">
+        <label for="redSel"><span class="swatch sw-red" style="display:inline-block;vertical-align:-1px"></span> Red brain</label>
+        <div class="row"><select id="redSel"></select><button class="btn small" id="redEdit" type="button">Edit</button></div>
+      </div>
+      <div class="field">
+        <label for="blackSel"><span class="swatch sw-black" style="display:inline-block;vertical-align:-1px"></span> Black brain</label>
+        <div class="row"><select id="blackSel"></select><button class="btn small" id="blackEdit" type="button">Edit</button></div>
+      </div>
+      <div class="row">
+        <button class="btn small" id="newBrain" type="button">New or import brain…</button>
+        <button class="btn small" id="swap" type="button" title="Swap the red and black brains">Swap colours</button>
+      </div>
+    </section>
+
+    <section class="box">
+      <h2>World</h2>
+      <div class="field">
+        <label for="worldSel">Map</label>
+        <div class="row"><select id="worldSel"></select><button class="btn small" id="worldEdit" type="button">View</button></div>
+      </div>
+      <div class="field" id="genRow">
+        <label for="worldSeed">Layout seed (random contest-style world)</label>
+        <div class="row"><input id="worldSeed" type="number" min="1" step="1" value="1"><button class="btn small" id="reroll" type="button">Roll</button></div>
+      </div>
+      <button class="btn small" id="newWorld" type="button" style="align-self:flex-start">Import world…</button>
+    </section>
+
+    <section class="box">
+      <h2>Match</h2>
+      <div class="row">
+        <div class="field" style="flex:1"><label for="simSeed">RNG seed</label><input id="simSeed" type="number" min="0" step="1" value="12345"></div>
+        <div class="field" style="flex:1"><label for="rounds">Rounds</label><input id="rounds" type="number" min="1" max="1000000" step="1000" value="100000"></div>
+      </div>
+      <p class="err" id="matchErr" hidden></p>
+      <div class="row">
+        <button class="btn primary" id="start" type="button">Start match</button>
+        <button class="btn" id="duelBtn" type="button" title="Run the match twice, once with colours swapped, and score it like the tournament">Play both sides</button>
+      </div>
+      <div class="duel" id="duel" hidden></div>
+    </section>
+
+    <section class="box">
+      <details class="notes">
+        <summary>How this simulator follows the rules</summary>
+        <ul>
+          <li>Rules come from the official task description, version 4. The random number generator reproduces the spec’s 100 test values for seed 12345.</li>
+          <li>The official <code>sample.ant</code> and step-by-step dump files were never available to check against, so round-by-round agreement with the judges’ simulator is untested. “Copy state dump” writes a dump in the same field order for comparison.</li>
+          <li>Generated worlds follow section 3.1. Rock shapes are my own choice, since the spec does not define them.</li>
+          <li>Hex cells are drawn as squares, with odd rows shifted half a cell right, exactly as in the world file.</li>
+          <li>The POV views show what a colony can sense: each living ant’s cell and its six neighbours. Fogged cells keep terrain and your own markers.</li>
+        </ul>
+      </details>
+    </section>
+  </aside>
+
+  <main class="stage">
+    <div class="viewbar">
+      <div class="seg" role="group" aria-label="View">
+        <button type="button" data-pov="-1" aria-pressed="true">God view</button>
+        <button type="button" data-pov="0">Red POV</button>
+        <button type="button" data-pov="1">Black POV</button>
+      </div>
+      <button class="btn small" id="marksBtn" type="button" aria-pressed="true">Markers</button>
+      <span class="spacer" style="flex:1"></span>
+      <div class="seg" role="group" aria-label="Zoom">
+        <button type="button" id="zOut" title="Zoom out">−</button>
+        <button type="button" id="zFit" title="Fit the whole world">Fit</button>
+        <button type="button" data-z="8">8px</button>
+        <button type="button" data-z="16">16px</button>
+        <button type="button" data-z="32">32px</button>
+        <button type="button" id="zIn" title="Zoom in">+</button>
+      </div>
+      <span class="zoomlbl" id="zoomLbl"></span>
+    </div>
+    <div class="mapwrap" id="mapwrap">
+      <canvas id="map" aria-label="World map"></canvas>
+      <div class="legend" id="legend">
+        <i style="background:var(--red)"></i><span>Red ant</span>
+        <i style="background:var(--m-black-ant);outline:1px solid var(--m-ant-edge)"></i><span>Black ant</span>
+        <i style="background:var(--m-food);border-radius:50%"></i><span>Food</span>
+        <i style="background:var(--m-rock)"></i><span>Rock</span>
+      </div>
+      <div class="busy" id="busy" hidden><span id="busyTxt">Simulating…</span><span class="bar"><i id="busyBar"></i></span></div>
+    </div>
+    <div class="transport">
+      <div class="tbtns">
+        <button class="btn" id="tStart" type="button" title="Back to round 0 (Home)">|◀</button>
+        <button class="btn" id="tBack100" type="button" title="Back 100 rounds (Shift+←)">◀◀</button>
+        <button class="btn" id="tBack" type="button" title="Back 1 round (←)">◀|</button>
+        <button class="btn" id="tRev" type="button" title="Play backwards">◀ Rev</button>
+        <button class="btn primary" id="tPlay" type="button" title="Play or pause (Space)">▶ Play</button>
+        <button class="btn" id="tFwd" type="button" title="Forward 1 round (→)">|▶</button>
+        <button class="btn" id="tFwd100" type="button" title="Forward 100 rounds (Shift+→)">▶▶</button>
+        <button class="btn" id="tEnd" type="button" title="Run to the final round (End)">▶|</button>
+        <select id="speed" title="Rounds per frame">
+          <option value="0.25">¼ round/frame</option>
+          <option value="1">1 round/frame</option>
+          <option value="4" selected>4 rounds/frame</option>
+          <option value="16">16 rounds/frame</option>
+          <option value="64">64 rounds/frame</option>
+          <option value="256">256 rounds/frame</option>
+          <option value="1000">1000 rounds/frame</option>
+        </select>
+        <span class="roundlbl">Round <b id="roundNow">0</b> / <span id="roundMax">100,000</span></span>
+      </div>
+      <input id="scrub" type="range" min="0" max="100000" step="1" value="0" aria-label="Round">
+      <div class="frontier" title="Rounds simulated so far"><i id="frontierBar"></i></div>
+    </div>
+  </main>
+
+  <aside class="rail stats">
+    <section class="box">
+      <h2>Food at home</h2>
+      <div class="score">
+        <div class="team">
+          <div class="name"><span class="swatch sw-red"></span><span id="redName">Red</span></div>
+          <div class="big" id="redScore">0</div>
+          <div class="kv"><span>Ants alive</span><b id="redAlive">0</b><span>Carrying</span><b id="redCarry">0</b><span>Lost</span><b id="redLost">0</b></div>
+        </div>
+        <div class="team">
+          <div class="name"><span class="swatch sw-black"></span><span id="blackName">Black</span></div>
+          <div class="big" id="blackScore">0</div>
+          <div class="kv"><span>Ants alive</span><b id="blackAlive">0</b><span>Carrying</span><b id="blackCarry">0</b><span>Lost</span><b id="blackLost">0</b></div>
+        </div>
+      </div>
+      <div class="kv"><span>Food still in the field</span><b id="loose">0</b></div>
+      <div class="verdict" id="verdict" hidden></div>
+    </section>
+    <section class="box">
+      <h2>Food at home by round</h2>
+      <canvas class="chart" id="chartScore"></canvas>
+    </section>
+    <section class="box">
+      <h2>Ants alive by round</h2>
+      <canvas class="chart" id="chartAlive"></canvas>
+    </section>
+    <section class="box">
+      <h2>Inspector</h2>
+      <div class="inspect" id="inspect"><span class="k">Hover a cell. Click an ant to follow it.</span></div>
+      <div class="row"><button class="btn small" id="dumpBtn" type="button">Copy state dump</button><span class="hint" id="dumpMsg"></span></div>
+    </section>
+  </aside>
+</div>
+
+<div class="overlay" id="editor" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+    <h3 id="edTitle">Brain</h3>
+    <div class="row">
+      <div class="field" style="flex:1"><label for="edName">Name</label><input id="edName" type="text"></div>
+      <div class="field"><label for="edFile">Load a file</label><input id="edFile" type="file" accept=".ant,.world,.txt,text/plain"></div>
+    </div>
+    <textarea id="edText" spellcheck="false" aria-label="Source"></textarea>
+    <p class="err" id="edErr" hidden></p>
+    <p class="ok" id="edOk" hidden></p>
+    <div class="row">
+      <button class="btn primary" id="edSave" type="button">Save</button>
+      <button class="btn" id="edSaveNew" type="button">Save as new</button>
+      <button class="btn" id="edUse" type="button" hidden></button>
+      <button class="btn" id="edCopy" type="button">Copy text</button>
+      <span class="spacer" style="flex:1"></span>
+      <button class="btn" id="edDelete" type="button">Delete</button>
+      <button class="btn" id="edClose" type="button">Close</button>
+    </div>
+    <p class="hint" id="edHint">Saved brains and worlds stay in this browser.</p>
+  </div>
+</div>
+<script type="text/plain" id="src-sample">
+Sense Ahead 1 3 Food  ; state 0:  [SEARCH] is there food in front of me?
+Move 2 0              ; state 1:  YES: move onto food (return to state 0 on failure)
+PickUp 8 0            ; state 2:       pick up food and jump to state 8 (or 0 on failure)
+Flip 3 4 5            ; state 3:  NO: choose whether to...
+Turn Left 0           ; state 4:      turn left and return to state 0
+Flip 2 6 7            ; state 5:      ...or...
+Turn Right 0          ; state 6:      turn right and return to state 0
+Move 0 3              ; state 7:      ...or move forward and return to state 0 (or 3 on failure)
+Sense Ahead 9 11 Home ; state 8:  [GO HOME] is the cell in front of me my anthill?
+Move 10 8             ; state 9:  YES: move onto anthill
+Drop 0                ; state 10:     drop food and return to searching
+Flip 3 12 13          ; state 11: NO: choose whether to...
+Turn Left 8           ; state 12:     turn left and return to state 8
+Flip 2 14 15          ; state 13:     ...or...
+Turn Right 8          ; state 14:     turn right and return to state 8
+Move 8 11             ; state 15:     ...or move forward and return to state 8
+</script>
+<script type="text/plain" id="src-lh">
+; Linepithema humile, by Peter Sewell and Francesco Zappa Nardelli (13th of 361 in the 2004 main division).
+; Source: https://www.cl.cam.ac.uk/~pes20/icfp-contest-2004/
+Sense Ahead 1 7 Home
+Turn Right 2
+Turn Right 3
+Sense Ahead 4 7 Home
+Turn Right 5
+Turn Right 6
+Sense Ahead 13 7 Home
+Mark 0 8
+Sense RightAhead 12 9 Home
+Turn Right 10
+Sense RightAhead 12 11 Home
+Turn Right 12
+Mark 1 127
+Sense Ahead 24 14 Marker 0
+Turn Right 15
+Sense Ahead 24 16 Marker 0
+Turn Right 17
+Sense Ahead 24 18 Marker 0
+Turn Right 19
+Sense Ahead 24 20 Marker 0
+Turn Right 21
+Sense Ahead 24 22 Marker 0
+Turn Right 23
+Sense Ahead 24 29 Marker 0
+Mark 1 25
+Sense LeftAhead 26 371 Marker 0
+Turn Left 27
+Sense LeftAhead 28 371 Marker 0
+Turn Left 371
+Sense Ahead 40 30 Marker 1
+Turn Right 31
+Sense Ahead 40 32 Marker 1
+Turn Right 33
+Sense Ahead 40 34 Marker 1
+Turn Right 35
+Sense Ahead 40 36 Marker 1
+Turn Right 37
+Sense Ahead 40 38 Marker 1
+Turn Right 39
+Sense Ahead 40 42 Marker 1
+Mark 2 41
+Mark 0 367
+Sense Ahead 53 43 Marker 2
+Turn Right 44
+Sense RightAhead 53 45 Marker 2
+Turn Right 46
+Sense RightAhead 53 47 Marker 2
+Turn Right 48
+Sense RightAhead 53 49 Marker 2
+Turn Right 50
+Sense RightAhead 53 51 Marker 2
+Turn Right 52
+Sense RightAhead 53 54 Marker 2
+Mark 3 366
+Mark 4 55
+Sense Here 94 56 Marker 3
+Flip 2 57 66
+Flip 3 58 66
+Turn Right 59
+Flip 2 60 66
+Turn Right 66
+Turn Left 62
+Flip 3 63 66
+Turn Left 64
+Flip 2 65 66
+Turn Left 66
+Sense Ahead 67 56 Home
+Move 55 55
+Sense Here 121 69 Marker 3
+Flip 2 70 79
+Flip 3 71 79
+Turn Right 72
+Flip 2 73 79
+Turn Right 79
+Turn Left 75
+Flip 3 76 79
+Turn Left 77
+Flip 2 78 79
+Turn Left 79
+Sense Ahead 80 69 Home
+Move 68 68
+Sense Here 120 82 Marker 3
+Flip 2 83 92
+Flip 3 84 92
+Turn Right 85
+Flip 2 86 92
+Turn Right 92
+Turn Left 88
+Flip 3 89 92
+Turn Left 90
+Flip 2 91 92
+Turn Left 92
+Sense Ahead 93 82 Home
+Move 81 81
+Sense Ahead 108 95 Marker 2
+Sense LeftAhead 96 97 Marker 2
+Turn Left 108
+Sense RightAhead 98 99 Marker 2
+Turn Right 108
+Turn Right 100
+Turn Right 101
+Sense Ahead 108 102 Marker 2
+Turn Right 103
+Turn Right 104
+Sense Ahead 108 105 Marker 2
+Turn Right 106
+Turn Right 107
+Sense Ahead 108 108 Marker 2
+Sense Ahead 114 109 Food
+Flip 2 110 112
+Sense LeftAhead 111 108 Marker 2
+Turn Left 108
+Sense RightAhead 113 108 Marker 2
+Turn Right 108
+Move 115 108
+PickUp 116 55
+Turn Right 117
+Turn Right 118
+Turn Right 119
+Move 120 124
+Drop 121
+Turn Right 122
+Turn Right 123
+Turn Right 108
+Move 120 125
+Move 120 126
+Move 120 81
+Move 128 128
+Mark 0 129
+Move 130 144
+Mark 1 131
+Move 132 144
+Mark 0 133
+Mark 1 134
+Move 128 144
+Move 136 136
+Move 137 137
+Mark 0 138
+Move 139 144
+Mark 1 140
+Move 141 144
+Mark 0 142
+Mark 1 143
+Move 137 144
+Sense Here 146 145 Home
+Sense Here 156 146 Food
+Sense RightAhead 148 147 Home
+Sense RightAhead 150 148 Food
+Sense LeftAhead 157 149 Home
+Sense LeftAhead 153 157 Food
+Turn Right 151
+Move 156 152
+Turn Left 157
+Turn Left 154
+Move 156 155
+Turn Right 157
+PickUp 251 157
+Sense Here 158 159 Marker 4
+Sense Here 185 160 Marker 5
+Sense Here 210 240 Marker 5
+PickUp 251 161
+Sense Ahead 162 163 Marker 4
+Sense Ahead 184 163 Marker 5
+Sense LeftAhead 164 166 Marker 4
+Sense LeftAhead 165 166 Marker 5
+Turn Left 184
+Sense RightAhead 167 169 Marker 4
+Sense RightAhead 168 169 Marker 5
+Turn Right 184
+Turn Right 170
+Sense RightAhead 171 173 Marker 4
+Sense RightAhead 172 173 Marker 5
+Turn Right 184
+Turn Right 174
+Sense RightAhead 175 177 Marker 4
+Sense RightAhead 176 177 Marker 5
+Turn Right 184
+Turn Right 178
+Sense RightAhead 179 181 Marker 4
+Sense RightAhead 180 181 Marker 5
+Turn Right 184
+Turn Right 182
+Turn Right 183
+Turn Right 235
+Move 185 240
+PickUp 251 186
+Sense Ahead 187 188 Marker 5
+Sense Ahead 188 209 Marker 4
+Sense LeftAhead 189 191 Marker 5
+Sense LeftAhead 191 190 Marker 4
+Turn Left 209
+Sense RightAhead 192 194 Marker 5
+Sense RightAhead 194 193 Marker 4
+Turn Right 209
+Turn Right 195
+Sense RightAhead 196 198 Marker 5
+Sense RightAhead 198 197 Marker 4
+Turn Right 209
+Turn Right 199
+Sense RightAhead 200 202 Marker 5
+Sense RightAhead 202 201 Marker 4
+Turn Right 209
+Turn Right 203
+Sense RightAhead 204 206 Marker 5
+Sense RightAhead 206 205 Marker 4
+Turn Right 209
+Turn Right 207
+Turn Right 208
+Turn Right 235
+Move 210 240
+PickUp 251 211
+Sense Ahead 212 213 Marker 4
+Sense Ahead 213 234 Marker 5
+Sense LeftAhead 214 216 Marker 4
+Sense LeftAhead 216 215 Marker 5
+Turn Left 234
+Sense RightAhead 217 219 Marker 4
+Sense RightAhead 219 218 Marker 5
+Turn Right 234
+Turn Right 220
+Sense RightAhead 221 223 Marker 4
+Sense RightAhead 223 222 Marker 5
+Turn Right 234
+Turn Right 224
+Sense RightAhead 225 227 Marker 4
+Sense RightAhead 227 226 Marker 5
+Turn Right 234
+Turn Right 228
+Sense RightAhead 229 231 Marker 4
+Sense RightAhead 231 230 Marker 5
+Turn Right 234
+Turn Right 232
+Turn Right 233
+Turn Right 235
+Move 160 240
+Sense Here 156 236 Food
+Flip 3 240 237
+Flip 2 238 239
+Turn Left 240
+Turn Right 240
+Move 144 241
+Flip 2 242 245
+Turn Right 243
+Flip 2 244 250
+Turn Right 250
+Turn Left 246
+Flip 3 247 250
+Turn Left 248
+Flip 2 249 250
+Turn Left 250
+Move 144 241
+Turn Left 252
+Turn Left 253
+Turn Left 254
+Flip 4 271 255
+Sense Here 256 257 Food
+Move 257 257
+Sense Ahead 271 258 Home
+Sense Ahead 271 259 Marker 4
+Sense Ahead 271 260 Marker 5
+Sense LeftAhead 271 261 Marker 4
+Sense LeftAhead 271 262 Marker 5
+Sense RightAhead 271 263 Marker 4
+Sense RightAhead 271 264 Marker 5
+Mark 4 265
+Move 266 271
+Mark 5 267
+Move 268 271
+Mark 4 269
+Mark 5 270
+Move 254 271
+Sense Here 272 273 Marker 2
+Drop 144
+Sense Here 274 275 Marker 0
+Sense Here 302 276 Marker 1
+Sense Here 328 354 Marker 1
+Sense Here 277 278 Marker 2
+Drop 144
+Sense Ahead 279 280 Marker 0
+Sense Ahead 301 280 Marker 1
+Sense LeftAhead 281 283 Marker 0
+Sense LeftAhead 282 283 Marker 1
+Turn Left 301
+Sense RightAhead 284 286 Marker 0
+Sense RightAhead 285 286 Marker 1
+Turn Right 301
+Turn Right 287
+Sense RightAhead 288 290 Marker 0
+Sense RightAhead 289 290 Marker 1
+Turn Right 301
+Turn Right 291
+Sense RightAhead 292 294 Marker 0
+Sense RightAhead 293 294 Marker 1
+Turn Right 301
+Turn Right 295
+Sense RightAhead 296 298 Marker 0
+Sense RightAhead 297 298 Marker 1
+Turn Right 301
+Turn Right 299
+Turn Right 300
+Turn Right 354
+Move 302 354
+Sense Here 303 304 Marker 2
+Drop 144
+Sense Ahead 305 306 Marker 1
+Sense Ahead 306 327 Marker 0
+Sense LeftAhead 307 309 Marker 1
+Sense LeftAhead 309 308 Marker 0
+Turn Left 327
+Sense RightAhead 310 312 Marker 1
+Sense RightAhead 312 311 Marker 0
+Turn Right 327
+Turn Right 313
+Sense RightAhead 314 316 Marker 1
+Sense RightAhead 316 315 Marker 0
+Turn Right 327
+Turn Right 317
+Sense RightAhead 318 320 Marker 1
+Sense RightAhead 320 319 Marker 0
+Turn Right 327
+Turn Right 321
+Sense RightAhead 322 324 Marker 1
+Sense RightAhead 324 323 Marker 0
+Turn Right 327
+Turn Right 325
+Turn Right 326
+Turn Right 354
+Move 328 354
+Sense Here 329 330 Marker 2
+Drop 144
+Sense Ahead 331 332 Marker 0
+Sense Ahead 332 353 Marker 1
+Sense LeftAhead 333 335 Marker 0
+Sense LeftAhead 335 334 Marker 1
+Turn Left 353
+Sense RightAhead 336 338 Marker 0
+Sense RightAhead 338 337 Marker 1
+Turn Right 353
+Turn Right 339
+Sense RightAhead 340 342 Marker 0
+Sense RightAhead 342 341 Marker 1
+Turn Right 353
+Turn Right 343
+Sense RightAhead 344 346 Marker 0
+Sense RightAhead 346 345 Marker 1
+Turn Right 353
+Turn Right 347
+Sense RightAhead 348 350 Marker 0
+Sense RightAhead 350 349 Marker 1
+Turn Right 353
+Turn Right 351
+Turn Right 352
+Turn Right 354
+Move 276 354
+Move 271 355
+Flip 2 356 359
+Turn Right 357
+Flip 2 358 364
+Turn Right 364
+Turn Left 360
+Flip 3 361 364
+Turn Left 362
+Flip 2 363 364
+Turn Left 364
+Move 271 355
+Drop 365
+Flip 3 144 55
+Flip 18 368 144
+Sense Ahead 370 369 Marker 2
+Turn Right 368
+Move 368 370
+Flip 12 372 135
+Flip 2 373 378
+Drop 374
+Sense Ahead 375 376 Marker 1
+Sense Ahead 376 377 Marker 0
+Turn Right 373
+Move 373 377
+Sense Ahead 379 380 Marker 1
+Sense Ahead 380 381 Marker 0
+Turn Right 378
+Move 378 381
+</script>
+<script type="text/plain" id="world-tiny">
+10
+10
+# # # # # # # # # #
+ # 9 9 . . . . 3 3 #
+# 9 # . - - - - - #
+ # . # - - - - - - #
+# . . 5 - - - - - #
+ # + + + + + 5 . . #
+# + + + + + + # . #
+ # + + + + + . # 9 #
+# 3 3 . . . . 9 9 #
+ # # # # # # # # # #
+</script>
+<script type="text/plain" id="world-sample1">
+100
+100
+####################################################################################################
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..........................................#.......................................................#
+#..........................................##......................................................#
+#.........................................##..................................5555.................#
+#.........................................##...................................5555................#
+#........................................##....................................5555................#
+#........................................##........................................................#
+#.......................................##.........................................................#
+#.......................................##.........................................................#
+#......................................##..........................................................#
+#......................................##..........................................................#
+#.....................................##...........................................................#
+#.....................................##...........................................................#
+#....................................##.++++++.....................................................#
+#....................................##.+++++++....................................................#
+#....................................#.++++++++....................................................#
+#...................------.............+++++++++...................................................#
+#..................-------............++++++++++...................................................#
+#..................--------...........+++++++++++..................................................#
+#.................---------...........++++++++++...................................................#
+#.................----------...........+++++++++...................................................#
+#................-----------...........++++++++....................................................#
+#.................----------............+++++++....................................................#
+#.................---------.............++++++.....#...............................................#
+#..................--------........................##..............................................#
+#..................-------.........................##..............................................#
+#...................------..........................##.............................................#
+#...................................................##...............................##............#
+#.............5......................................##..............#...............##............#
+#............55......................................##.............##..............##.............#
+#............555......................................##............##..............##.............#
+#...........555.......................................##..........###..............##..............#
+#............55........................................##.........###..............##..............#
+#............5.........................................##.........##..............#########........#
+#.......................................................##........###.............##########.......#
+#.......................................................##.......####............##......##........#
+#........................................................##......##.##...#.......##......##.....555#
+#........................................................#......##..##..##......##########.....555.#
+#...............................................................##...##.##......#########......555.#
+#..............................................................##....####.....................555..#
+#................................############...................#.....###..........................#
+#...............................############..........................##...........................#
+#.....................................##..##...........................#...........................#
+#..................########..........##..##........................................................#
+#.................##########.........##..##........................................................#
+#................##......##.............##.........................................................#
+#................##......##.............##.........................................................#
+#...............##....#.##.............##..........................................................#
+#...............##...#..##.............##..........................................................#
+#..............##..#...##.............##...........................................................#
+#..............##.#....##..........................................................................#
+#.............##......##...........................................................................#
+#.............##......##...........................................................................#
+#............##########............................................................................#
+#.............########.............................##########......................................#
+#..................................................##########......................................#
+#......................##...............................##.........................................#
+#.....................###...............................##.........................................#
+#.....................####...............................##........................................#
+#.....................#.##...............................##................................5555....#
+#........................##...............................##................................5555...#
+#........................##...............................##....................##..........5555...#
+#.........................##...............................##...................##.................#
+#..................#......##...............................##..................##..................#
+#..................##......#............................##########.............##..................#
+#.................##......##..................#.........##########............##...................#
+#..................#......##..................##..............................##...................#
+#.................##.....##...................##.........5...................##....................#
+#..................##....##....................##........55..................##....................#
+#..................##...##.....................##.......555.5...............##.....................#
+#...................##..##......................##......555.55..............##.....................#
+#...................##.##.......................##......55.555.............##......................#
+#....................####........................##......5..555............##......................#
+#....................###.......5555..............##.........55............##.......................#
+#.....................##........5555..............##.........5............##.......................#
+#...............................5555..............##...............................................#
+#.....................................5555.........##..............................................#
+#....................................5555..........##..............................................#
+#....................................5555...........##.............................................#
+#...................................................#..............................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+#..................................................................................................#
+####################################################################################################
+</script>
+<script>
+'use strict';
+// ===== Engine: follows the 2004 task description, sections 2.1-2.12 =====
+const RED = 0, BLACK = 1;
+const COLOR_NAME = ['red', 'black'];
+const COND_NAMES = ['Friend', 'Foe', 'FriendWithFood', 'FoeWithFood', 'Food', 'Rock', 'Marker', 'FoeMarker', 'Home', 'FoeHome'];
+const COND = {}; COND_NAMES.forEach((n, i) => COND[n.toLowerCase()] = i);
+const SDIR_NAMES = ['Here', 'Ahead', 'LeftAhead', 'RightAhead'];
+const SDIR = {}; SDIR_NAMES.forEach((n, i) => SDIR[n.toLowerCase()] = i);
+const OP_SENSE = 0, OP_MARK = 1, OP_UNMARK = 2, OP_PICKUP = 3, OP_DROP = 4, OP_TURN = 5, OP_MOVE = 6, OP_FLIP = 7;
+const MAX_STATES = 10000;
+
+// Brain file (section 2.8). Each instruction is 5 ints: op, a, b, c, d.
+function parseBrain(src) {
+  const code = [], text = [], errors = [], refs = [];
+  const lines = src.split(/\r?\n/);
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li].replace(/;.*$/, '').trim();
+    if (!line) continue;
+    const t = line.split(/\s+/);
+    const k = t[0].toLowerCase();
+    const num = (i) => {
+      const v = t[i];
+      if (v === undefined || !/^\d+$/.test(v)) throw new Error(`expected a number as argument ${i}`);
+      return parseInt(v, 10);
+    };
+    const arity = (n) => { if (t.length !== n) throw new Error(`${t[0]} takes ${n - 1} arguments, found ${t.length - 1}`); };
+    const marker = (i) => { const m = num(i); if (m > 5) throw new Error('markers are numbered 0 to 5'); return m; };
+    try {
+      let ins;
+      switch (k) {
+        case 'sense': {
+          const sd = SDIR[(t[1] || '').toLowerCase()];
+          if (sd === undefined) throw new Error('sense direction must be Here, Ahead, LeftAhead or RightAhead');
+          const a = num(2), b = num(3);
+          const c = COND[(t[4] || '').toLowerCase()];
+          if (c === undefined) throw new Error(`unknown condition "${t[4] || ''}"`);
+          let m = 0;
+          if (c === 6) { m = marker(5); arity(6); } else arity(5);
+          ins = [OP_SENSE, sd, a, b, c * 8 + m]; refs.push([a, li], [b, li]);
+          break;
+        }
+        case 'mark': case 'unmark': arity(3); ins = [k === 'mark' ? OP_MARK : OP_UNMARK, marker(1), num(2), 0, 0]; refs.push([ins[2], li]); break;
+        case 'pickup': arity(3); ins = [OP_PICKUP, num(1), num(2), 0, 0]; refs.push([ins[1], li], [ins[2], li]); break;
+        case 'drop': arity(2); ins = [OP_DROP, num(1), 0, 0, 0]; refs.push([ins[1], li]); break;
+        case 'turn': {
+          arity(3);
+          const lr = (t[1] || '').toLowerCase();
+          if (lr !== 'left' && lr !== 'right') throw new Error('Turn takes Left or Right');
+          ins = [OP_TURN, lr === 'left' ? 0 : 1, num(2), 0, 0]; refs.push([ins[2], li]);
+          break;
+        }
+        case 'move': arity(3); ins = [OP_MOVE, num(1), num(2), 0, 0]; refs.push([ins[1], li], [ins[2], li]); break;
+        case 'flip': {
+          arity(4);
+          const p = num(1); if (p < 1) throw new Error('Flip needs p of at least 1');
+          ins = [OP_FLIP, p, num(2), num(3), 0]; refs.push([ins[2], li], [ins[3], li]);
+          break;
+        }
+        default: throw new Error(`unknown instruction "${t[0]}"`);
+      }
+      code.push(ins); text.push(fmtIns(ins));
+    } catch (e) {
+      errors.push(`line ${li + 1}: ${e.message}`);
+    }
+    if (errors.length > 20) break;
+  }
+  if (!code.length && !errors.length) errors.push('the brain has no instructions');
+  if (code.length > MAX_STATES) errors.push(`the brain has ${code.length} states; the limit is ${MAX_STATES}`);
+  for (const [s, li] of refs) if (s >= code.length && errors.length < 20) errors.push(`line ${li + 1}: state ${s} does not exist (last state is ${code.length - 1})`);
+  const flat = new Int32Array(code.length * 5);
+  code.forEach((ins, i) => flat.set(ins, i * 5));
+  return { code: flat, text, n: code.length, errors };
+}
+
+function fmtIns(ins) {
+  const [op, a, b, c, d] = ins;
+  switch (op) {
+    case OP_SENSE: { const cond = d >> 3; return `Sense ${SDIR_NAMES[a]} ${b} ${c} ${COND_NAMES[cond]}${cond === 6 ? ' ' + (d & 7) : ''}`; }
+    case OP_MARK: return `Mark ${a} ${b}`;
+    case OP_UNMARK: return `Unmark ${a} ${b}`;
+    case OP_PICKUP: return `PickUp ${a} ${b}`;
+    case OP_DROP: return `Drop ${a}`;
+    case OP_TURN: return `Turn ${a ? 'Right' : 'Left'} ${b}`;
+    case OP_MOVE: return `Move ${a} ${b}`;
+    case OP_FLIP: return `Flip ${a} ${b} ${c}`;
+  }
+  return '?';
+}
+
+// World file (section 2.4). Rows may also be written without spaces.
+function parseWorld(src) {
+  const lines = src.split(/\r?\n/).filter(l => l.trim() !== '');
+  const errors = [];
+  if (lines.length < 2) return { errors: ['a world starts with two lines: width, then height'] };
+  const W = parseInt(lines[0], 10), H = parseInt(lines[1], 10);
+  if (!(W >= 3 && W <= 1000) || !(H >= 3 && H <= 1000)) return { errors: ['width and height must be numbers between 3 and 1000'] };
+  if (lines.length - 2 < H) return { errors: [`expected ${H} rows, found ${lines.length - 2}`] };
+  const N = W * H;
+  const rock = new Uint8Array(N), food = new Uint16Array(N), hill = new Int8Array(N).fill(-1);
+  for (let y = 0; y < H && errors.length < 10; y++) {
+    let toks = lines[2 + y].trim().split(/\s+/);
+    if (toks.length === 1 && toks[0].length === W) toks = [...toks[0]];
+    if (toks.length !== W) { errors.push(`row ${y} has ${toks.length} cells, expected ${W}`); continue; }
+    for (let x = 0; x < W; x++) {
+      const ch = toks[x], p = y * W + x;
+      if (ch === '#') rock[p] = 1;
+      else if (ch === '.') {}
+      else if (ch === '+') hill[p] = RED;
+      else if (ch === '-') hill[p] = BLACK;
+      else if (/^[1-9]$/.test(ch)) food[p] = +ch;
+      else errors.push(`row ${y}, column ${x}: unknown cell "${ch}"`);
+    }
+  }
+  let ants = [0, 0];
+  for (let p = 0; p < N; p++) if (hill[p] >= 0) ants[hill[p]]++;
+  if (!errors.length && (!ants[0] || !ants[1])) errors.push('the world needs at least one red (+) and one black (-) anthill cell');
+  if (ants[0] + ants[1] > 32000) errors.push('too many anthill cells');
+  return { W, H, rock, food, hill, errors };
+}
+
+function worldToText(w) {
+  const out = [String(w.W), String(w.H)];
+  for (let y = 0; y < w.H; y++) {
+    const row = [];
+    for (let x = 0; x < w.W; x++) {
+      const p = y * w.W + x;
+      row.push(w.rock[p] ? '#' : w.hill[p] === RED ? '+' : w.hill[p] === BLACK ? '-' : w.food[p] ? String(Math.min(9, w.food[p])) : '.');
+    }
+    out.push((y & 1 ? ' ' : '') + row.join(' '));
+  }
+  return out.join('\n') + '\n';
+}
+
+// adjacent_cell (section 2.1): odd rows are shifted half a cell to the right.
+function buildNeighbours(W, H) {
+  const nb = new Int32Array(W * H * 6).fill(-1);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const odd = y & 1, p = (y * W + x) * 6;
+    const cand = [
+      [x + 1, y], [x + odd, y + 1], [x - 1 + odd, y + 1],
+      [x - 1, y], [x - 1 + odd, y - 1], [x + odd, y - 1],
+    ];
+    for (let d = 0; d < 6; d++) {
+      const [cx, cy] = cand[d];
+      if (cx >= 0 && cx < W && cy >= 0 && cy < H) nb[p + d] = cy * W + cx;
+    }
+  }
+  return nb;
+}
+
+// randomint (section 2.10). x_i comes from s_{i+4}; we hold s_{i+3} and advance before each draw.
+class Rng {
+  constructor(seed) { let s = seed >>> 0; for (let i = 0; i < 3; i++) s = (Math.imul(s, 22695477) + 1) >>> 0; this.s = s; }
+  next() { this.s = (Math.imul(this.s, 22695477) + 1) >>> 0; return (this.s >>> 16) & 16383; }
+}
+
+class Sim {
+  constructor(world, brains, seed) {
+    const W = this.W = world.W, H = this.H = world.H, N = this.N = W * H;
+    this.rock = world.rock; this.hill = world.hill;
+    this.food = new Uint16Array(world.food);
+    this.mk = [new Uint8Array(N), new Uint8Array(N)];
+    this.antAt = new Int16Array(N).fill(-1);
+    this.nb = buildNeighbours(W, H);
+    this.brains = [brains[0].code, brains[1].code];
+    this.hillCells = [[], []];
+    const cols = [];
+    for (let p = 0; p < N; p++) {
+      if (this.hill[p] < 0) continue;
+      this.hillCells[this.hill[p]].push(p);
+      if (!this.rock[p]) cols.push([p, this.hill[p]]);
+    }
+    const n = this.n = cols.length;
+    this.col = new Uint8Array(n); this.pos = new Int32Array(n);
+    this.st = new Int32Array(n); this.rest = new Uint8Array(n); this.dir = new Uint8Array(n);
+    this.carry = new Uint8Array(n); this.alv = new Uint8Array(n).fill(1);
+    this.alive = [0, 0]; this.initial = [0, 0];
+    cols.forEach(([p, c], i) => { this.col[i] = c; this.pos[i] = p; this.antAt[p] = i; this.alive[c]++; this.initial[c]++; });
+    this.rng = new Rng(seed);
+    this.round = 0;
+  }
+  doRound() { for (let i = 0; i < this.n; i++) this.step(i); this.round++; }
+  matches(q, cond, m, c) {
+    if (q < 0 || this.rock[q]) return cond === 5;
+    const a = this.antAt[q];
+    switch (cond) {
+      case 0: return a >= 0 && this.col[a] === c;
+      case 1: return a >= 0 && this.col[a] !== c;
+      case 2: return a >= 0 && this.col[a] === c && this.carry[a] === 1;
+      case 3: return a >= 0 && this.col[a] !== c && this.carry[a] === 1;
+      case 4: return this.food[q] > 0;
+      case 5: return false;
+      case 6: return ((this.mk[c][q] >> m) & 1) === 1;
+      case 7: return this.mk[1 - c][q] !== 0;
+      case 8: return this.hill[q] === c;
+      case 9: return this.hill[q] === 1 - c;
+    }
+    return false;
+  }
+  step(i) {
+    if (!this.alv[i]) return;
+    if (this.rest[i] > 0) { this.rest[i]--; return; }
+    const c = this.col[i], B = this.brains[c], o = this.st[i] * 5, p = this.pos[i];
+    switch (B[o]) {
+      case OP_SENSE: {
+        const sd = B[o + 1], d = this.dir[i];
+        const q = sd === 0 ? p : this.nb[p * 6 + (sd === 1 ? d : sd === 2 ? (d + 5) % 6 : (d + 1) % 6)];
+        this.st[i] = this.matches(q, B[o + 4] >> 3, B[o + 4] & 7, c) ? B[o + 2] : B[o + 3];
+        break;
+      }
+      case OP_MARK: this.mk[c][p] |= 1 << B[o + 1]; this.st[i] = B[o + 2]; break;
+      case OP_UNMARK: this.mk[c][p] &= ~(1 << B[o + 1]); this.st[i] = B[o + 2]; break;
+      case OP_PICKUP:
+        if (this.carry[i] || this.food[p] === 0) this.st[i] = B[o + 2];
+        else { this.food[p]--; this.carry[i] = 1; this.st[i] = B[o + 1]; }
+        break;
+      case OP_DROP:
+        if (this.carry[i]) { this.food[p]++; this.carry[i] = 0; }
+        this.st[i] = B[o + 1];
+        break;
+      case OP_TURN: this.dir[i] = B[o + 1] ? (this.dir[i] + 1) % 6 : (this.dir[i] + 5) % 6; this.st[i] = B[o + 2]; break;
+      case OP_MOVE: {
+        const q = this.nb[p * 6 + this.dir[i]];
+        if (q < 0 || this.rock[q] || this.antAt[q] >= 0) this.st[i] = B[o + 2];
+        else {
+          this.antAt[p] = -1; this.antAt[q] = i; this.pos[i] = q;
+          this.st[i] = B[o + 1]; this.rest[i] = 14;
+          this.checkSurrounded(q);
+        }
+        break;
+      }
+      case OP_FLIP: this.st[i] = this.rng.next() % B[o + 1] === 0 ? B[o + 2] : B[o + 3]; break;
+    }
+  }
+  checkSurrounded(q) {
+    this.checkAt(q);
+    for (let d = 0; d < 6; d++) this.checkAt(this.nb[q * 6 + d]);
+  }
+  checkAt(p) {
+    if (p < 0) return;
+    const a = this.antAt[p];
+    if (a < 0) return;
+    const enemy = 1 - this.col[a];
+    let k = 0;
+    for (let d = 0; d < 6; d++) {
+      const r = this.nb[p * 6 + d];
+      if (r >= 0) { const b = this.antAt[r]; if (b >= 0 && this.col[b] === enemy) k++; }
+    }
+    if (k >= 5) {
+      this.antAt[p] = -1; this.alv[a] = 0; this.alive[this.col[a]]--;
+      this.food[p] += 3 + this.carry[a];
+      this.carry[a] = 0;
+    }
+  }
+  score(c) { let s = 0; for (const p of this.hillCells[c]) s += this.food[p]; return s; }
+  carrying(c) { let s = 0; for (let i = 0; i < this.n; i++) if (this.alv[i] && this.col[i] === c && this.carry[i]) s++; return s; }
+  foodLoose() { let s = 0; for (let p = 0; p < this.N; p++) if (this.hill[p] < 0) s += this.food[p]; return s; }
+  snapshot() {
+    return {
+      round: this.round, rs: this.rng.s, food: this.food.slice(), m0: this.mk[0].slice(), m1: this.mk[1].slice(),
+      antAt: this.antAt.slice(), st: this.st.slice(), rest: this.rest.slice(), dir: this.dir.slice(),
+      carry: this.carry.slice(), alv: this.alv.slice(), pos: this.pos.slice(), alive: this.alive.slice(),
+    };
+  }
+  restore(s) {
+    this.round = s.round; this.rng.s = s.rs;
+    this.food.set(s.food); this.mk[0].set(s.m0); this.mk[1].set(s.m1); this.antAt.set(s.antAt);
+    this.st.set(s.st); this.rest.set(s.rest); this.dir.set(s.dir); this.carry.set(s.carry);
+    this.alv.set(s.alv); this.pos.set(s.pos); this.alive = s.alive.slice();
+  }
+  // Text dump in the spirit of the official traces (section 2.13); field order follows the spec.
+  dump() {
+    const out = [`After round ${this.round}...`];
+    for (let y = 0; y < this.H; y++) for (let x = 0; x < this.W; x++) {
+      const p = y * this.W + x;
+      let s = `cell (${x}, ${y}): `;
+      if (this.rock[p]) s += 'rock';
+      else {
+        if (this.food[p]) s += `${this.food[p]} food; `;
+        if (this.hill[p] >= 0) s += `${COLOR_NAME[this.hill[p]]} hill; `;
+        for (const c of [RED, BLACK]) if (this.mk[c][p]) {
+          let b = ''; for (let i = 0; i < 6; i++) if ((this.mk[c][p] >> i) & 1) b += i;
+          s += `${COLOR_NAME[c]} marks: ${b}; `;
+        }
+        const a = this.antAt[p];
+        if (a >= 0) s += `${COLOR_NAME[this.col[a]]} ant of id ${a}, dir ${this.dir[a]}, food ${this.carry[a]}, state ${this.st[a]}, resting ${this.rest[a]}`;
+      }
+      out.push(s);
+    }
+    return out.join('\n');
+  }
+}
+
+// Tournament-style world (section 3.1): 100x100, rocky border, two hexagonal anthills of side 6,
+// ten rocks and eight 3x4 food blobs of 5 particles, one empty cell between non-food elements.
+function generateWorld(seed, W = 100, H = 100) {
+  let s = (seed >>> 0) || 1;
+  const rnd = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+  const N = W * H;
+  const rock = new Uint8Array(N), food = new Uint16Array(N), hill = new Int8Array(N).fill(-1);
+  const taken = new Int8Array(N); // 0 free, 1 food, 2 other element
+  for (let x = 0; x < W; x++) { rock[x] = 1; rock[(H - 1) * W + x] = 1; taken[x] = 2; taken[(H - 1) * W + x] = 2; }
+  for (let y = 0; y < H; y++) { rock[y * W] = 1; rock[y * W + W - 1] = 1; taken[y * W] = 2; taken[y * W + W - 1] = 2; }
+  const nb = buildNeighbours(W, H);
+  // axial helpers for odd-r offset coordinates
+  const AX = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
+  const toAx = (x, y) => [x - ((y - (y & 1)) / 2), y];
+  const fromAx = (q, r) => [q + ((r - (r & 1)) / 2), r];
+  const cellOf = (q, r) => { const [x, y] = fromAx(q, r); return (x >= 1 && x < W - 1 && y >= 1 && y < H - 1) ? y * W + x : -1; };
+  const fits = (cells) => {
+    for (const p of cells) {
+      if (p < 0 || taken[p]) return false;
+      for (let d = 0; d < 6; d++) { const r = nb[p * 6 + d]; if (r < 0 || taken[r]) return false; }
+    }
+    return true;
+  };
+  const place = (make, isFood, apply, tries = 4000) => {
+    for (let t = 0; t < tries; t++) {
+      const cells = make();
+      if (cells && fits(cells)) { for (const p of cells) { taken[p] = isFood ? 1 : 2; apply(p); } return true; }
+    }
+    return false;
+  };
+  const hexagon = (side) => () => {
+    const [cq, cr] = toAx(ri(side + 1, W - side - 2), ri(side + 1, H - side - 2));
+    const R = side - 1, out = [];
+    for (let dq = -R; dq <= R; dq++) for (let dr = Math.max(-R, -dq - R); dr <= Math.min(R, -dq + R); dr++) out.push(cellOf(cq + dq, cr + dr));
+    return out;
+  };
+  place(hexagon(6), false, p => { hill[p] = RED; });
+  place(hexagon(6), false, p => { hill[p] = BLACK; });
+  const rockShape = () => {
+    const [q0, r0] = toAx(ri(2, W - 3), ri(2, H - 3));
+    const out = [];
+    const kind = ri(0, 2), d = ri(0, 5), u = AX[d], v = AX[(d + 1) % 6];
+    if (kind === 0) { // thick bar
+      const len = ri(6, 14);
+      for (let i = 0; i < len; i++) for (let j = 0; j < 2; j++) out.push(cellOf(q0 + u[0] * i + v[0] * j, r0 + u[1] * i + v[1] * j));
+    } else if (kind === 1) { // bent bar
+      const a = ri(5, 10), b = ri(4, 9), w = AX[(d + 2) % 6];
+      let q = q0, r = r0;
+      for (let i = 0; i < a; i++) { out.push(cellOf(q, r), cellOf(q + v[0], r + v[1])); q += u[0]; r += u[1]; }
+      for (let i = 0; i < b; i++) { out.push(cellOf(q, r), cellOf(q + v[0], r + v[1])); q += w[0]; r += w[1]; }
+    } else { // open hexagonal ring
+      const R = ri(3, 5), gap = ri(0, 5);
+      let q = q0 + AX[4][0] * R, r = r0 + AX[4][1] * R;
+      for (let side = 0; side < 6; side++) {
+        const e = AX[side];
+        for (let i = 0; i < R; i++) { if (side !== gap) out.push(cellOf(q, r)); q += e[0]; r += e[1]; }
+      }
+    }
+    return [...new Set(out)];
+  };
+  for (let k = 0; k < 10; k++) place(rockShape, false, p => { rock[p] = 1; });
+  const blob = () => {
+    const [q0, r0] = toAx(ri(2, W - 3), ri(2, H - 3));
+    const d = ri(0, 5), u = AX[d], v = AX[(d + 1) % 6], out = [];
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) out.push(cellOf(q0 + u[0] * i + v[0] * j, r0 + u[1] * i + v[1] * j));
+    return out;
+  };
+  for (let k = 0; k < 8; k++) place(blob, true, p => { food[p] = 5; });
+  const w = { W, H, rock, food, hill, errors: [] };
+  return w;
+}
+
+// ===== App =====
+const $ = (s) => document.querySelector(s);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+};
+const fmt = (n) => Math.round(n).toLocaleString('en-US');
+const KEY_STEP = 500;   // keyframe every N rounds for rewinding
+const SAMPLE = 10;      // chart sample interval
+
+// ---------- Library ----------
+const BUILTIN_BRAINS = [
+  { id: 'b:sample', name: 'Spec sample (random walker)', src: $('#src-sample').textContent.trim() + '\n', builtin: true },
+  { id: 'b:lh', name: 'Linepithema humile (Cambridge, 13th)', src: $('#src-lh').textContent.trim() + '\n', builtin: true },
+];
+const BUILTIN_WORLDS = [
+  { id: 'gen', name: 'Random contest world (seeded)', builtin: true },
+  { id: 'w:sample1', name: 'Contest sample world (spec §3.1)', src: $('#world-sample1').textContent.trim() + '\n', builtin: true },
+  { id: 'w:tiny', name: 'Tiny test world (spec §2.4)', src: $('#world-tiny').textContent.trim() + '\n', builtin: true },
+];
+let userBrains = store.get('ants:brains', []);
+let userWorlds = store.get('ants:worlds', []);
+const allBrains = () => BUILTIN_BRAINS.concat(userBrains);
+const allWorlds = () => BUILTIN_WORLDS.concat(userWorlds);
+const findBrain = (id) => allBrains().find(b => b.id === id);
+const findWorld = (id) => allWorlds().find(w => w.id === id);
+const settings = Object.assign({ red: 'b:lh', black: 'b:sample', world: 'gen', worldSeed: 1, simSeed: 12345, rounds: 100000, speed: '4' }, store.get('ants:settings', {}));
+const saveSettings = () => store.set('ants:settings', settings);
+
+function fillSelects() {
+  for (const [sel, key] of [[$('#redSel'), 'red'], [$('#blackSel'), 'black']]) {
+    sel.innerHTML = '';
+    for (const b of allBrains()) sel.add(new Option((b.builtin ? '' : '★ ') + b.name, b.id));
+    if (!findBrain(settings[key])) settings[key] = 'b:sample';
+    sel.value = settings[key];
+  }
+  const ws = $('#worldSel'); ws.innerHTML = '';
+  for (const w of allWorlds()) ws.add(new Option((w.builtin ? '' : '★ ') + w.name, w.id));
+  if (!findWorld(settings.world)) settings.world = 'gen';
+  ws.value = settings.world;
+  $('#genRow').hidden = settings.world !== 'gen';
+  $('#worldEdit').textContent = settings.world === 'gen' ? 'Export' : 'View';
+}
+
+function currentWorld() {
+  if (settings.world === 'gen') return generateWorld(settings.worldSeed);
+  return parseWorld(findWorld(settings.world).src);
+}
+
+// ---------- Match state ----------
+let M = null; // { sim, world, brains, names, rounds, keys: Map, frontier, hist }
+function newMatch() {
+  const err = $('#matchErr'); err.hidden = true;
+  const world = currentWorld();
+  const rb = findBrain(settings.red), bb = findBrain(settings.black);
+  const brains = [parseBrain(rb.src), parseBrain(bb.src)];
+  const problems = [];
+  if (world.errors.length) problems.push('World: ' + world.errors.slice(0, 3).join('; '));
+  brains.forEach((b, i) => { if (b.errors.length) problems.push(`${i ? 'Black' : 'Red'} brain: ` + b.errors.slice(0, 3).join('; ')); });
+  if (problems.length) { err.textContent = problems.join('\n'); err.hidden = false; return false; }
+  stopPlay(); jobId++;
+  const rounds = Math.max(1, Math.min(1000000, settings.rounds | 0));
+  const sim = new Sim(world, brains, settings.simSeed >>> 0);
+  const ns = Math.floor(rounds / SAMPLE) + 1;
+  M = {
+    sim, world, brains, names: [rb.name, bb.name], rounds, keys: new Map([[0, sim.snapshot()]]), frontier: 0,
+    hist: { n: 0, score: [new Float32Array(ns), new Float32Array(ns)], alive: [new Float32Array(ns), new Float32Array(ns)] },
+  };
+  record();
+  selectedAnt = -1;
+  $('#scrub').max = rounds; $('#roundMax').textContent = fmt(rounds);
+  $('#redName').textContent = rb.name; $('#blackName').textContent = bb.name;
+  view.fitted = false; fitView();
+  dirty = true;
+  return true;
+}
+function record() {
+  const s = M.sim, h = M.hist, i = s.round / SAMPLE;
+  h.score[0][i] = s.score(0); h.score[1][i] = s.score(1);
+  h.alive[0][i] = s.alive[0]; h.alive[1][i] = s.alive[1];
+  h.n = i + 1;
+}
+function tick() {
+  const s = M.sim;
+  s.doRound();
+  if (s.round > M.frontier) {
+    M.frontier = s.round;
+    if (s.round % KEY_STEP === 0) M.keys.set(s.round, s.snapshot());
+    if (s.round % SAMPLE === 0) record();
+  }
+}
+
+// Seek to a round: rewind from the nearest keyframe, then simulate forward in time slices.
+let jobId = 0, busy = false;
+function seek(target, onDone) {
+  if (!M) return;
+  target = Math.max(0, Math.min(M.rounds, Math.round(target)));
+  const s = M.sim;
+  if (target < s.round || target - s.round > KEY_STEP) {
+    const k = Math.min(Math.floor(target / KEY_STEP), Math.floor(M.frontier / KEY_STEP)) * KEY_STEP;
+    if (target < s.round || k > s.round) s.restore(M.keys.get(k));
+  }
+  const id = ++jobId;
+  const startRound = s.round;
+  const work = () => {
+    if (id !== jobId) return;
+    const t0 = performance.now();
+    while (s.round < target && performance.now() - t0 < 24) { for (let k = 0; k < 25 && s.round < target; k++) tick(); }
+    dirty = true;
+    if (s.round < target) {
+      busy = true;
+      $('#busy').hidden = false;
+      $('#busyTxt').textContent = `Simulating round ${fmt(s.round)}`;
+      $('#busyBar').style.width = (100 * (s.round - startRound) / Math.max(1, target - startRound)) + '%';
+      setTimeout(work, 0);
+    } else {
+      busy = false; $('#busy').hidden = true;
+      if (onDone) onDone();
+    }
+  };
+  work();
+}
+
+// ---------- Playback ----------
+let playing = 0, acc = 0, dirty = true;
+function setPlay(dir) {
+  playing = dir; acc = 0;
+  $('#tPlay').textContent = playing === 1 ? '❚❚ Pause' : '▶ Play';
+  $('#tRev').textContent = playing === -1 ? '❚❚ Pause' : '◀ Rev';
+}
+function stopPlay() { setPlay(0); }
+function loop() {
+  if (M && playing && !busy) {
+    acc += parseFloat(settings.speed);
+    const k = Math.floor(acc);
+    if (k > 0) {
+      acc -= k;
+      let t = M.sim.round + playing * k;
+      if (t >= M.rounds) { t = M.rounds; stopPlay(); }
+      if (t <= 0) { t = 0; stopPlay(); }
+      seek(t);
+    }
+  }
+  if (dirty) { dirty = false; render(); }
+  requestAnimationFrame(loop);
+}
+
+// ---------- Map view ----------
+const canvas = $('#map'), ctx = canvas.getContext('2d');
+const view = { s: 6, ox: 0, oy: 0, pov: -1, marks: true, fitted: false };
+let C = {};
+const DV = [[1, 0], [0.5, 1], [-0.5, 1], [-1, 0], [-0.5, -1], [0.5, -1]].map(([x, y]) => { const l = Math.hypot(x, y); return [x / l, y / l]; });
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const k of ['outer', 'grid', 'ground', 'rock', 'hill-red', 'hill-black', 'food', 'food-ink', 'black-ant', 'ant-edge', 'fog', 'red-mark', 'black-mark', 'black-pip', 'select'])
+    C[k] = cs.getPropertyValue('--m-' + k).trim();
+  C.red = cs.getPropertyValue('--red').trim(); C.black = cs.getPropertyValue('--black').trim();
+  C.muted = cs.getPropertyValue('--muted').trim(); C.line = cs.getPropertyValue('--line').trim(); C.fg = cs.getPropertyValue('--fg').trim();
+  dirty = true;
+}
+function sizeCanvas(c) {
+  const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  return [w, h, dpr];
+}
+function fitView() {
+  if (!M) return;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  const s = Math.max(1, Math.min((w - 16) / (M.sim.W + 0.5), (h - 16) / M.sim.H));
+  view.s = s; view.ox = (w - s * (M.sim.W + 0.5)) / 2; view.oy = (h - s * M.sim.H) / 2;
+  view.fitted = true; dirty = true;
+}
+function zoomAt(ns, mx, my) {
+  ns = Math.max(1, Math.min(64, ns));
+  const k = ns / view.s;
+  view.ox = mx - (mx - view.ox) * k; view.oy = my - (my - view.oy) * k; view.s = ns; dirty = true;
+}
+function cellAt(mx, my) {
+  if (!M) return -1;
+  const s = view.s, y = Math.floor((my - view.oy) / s);
+  if (y < 0 || y >= M.sim.H) return -1;
+  const x = Math.floor((mx - view.ox - (y & 1) * s / 2) / s);
+  if (x < 0 || x >= M.sim.W) return -1;
+  return y * M.sim.W + x;
+}
+
+let vis = null;
+function computeVis(sim, c) {
+  if (!vis || vis.length !== sim.N) vis = new Uint8Array(sim.N);
+  vis.fill(0);
+  for (let i = 0; i < sim.n; i++) {
+    if (!sim.alv[i] || sim.col[i] !== c) continue;
+    const p = sim.pos[i]; vis[p] = 1;
+    for (let d = 0; d < 6; d++) { const q = sim.nb[p * 6 + d]; if (q >= 0) vis[q] = 1; }
+  }
+  return vis;
+}
+
+let hoverCell = -1, selectedAnt = -1;
+function render() {
+  if (!M) return;
+  const [cw, ch, dpr] = sizeCanvas(canvas);
+  if (!view.fitted) fitView();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = C.outer; ctx.fillRect(0, 0, cw, ch);
+  const sim = M.sim, W = sim.W, H = sim.H, s = view.s, pov = view.pov;
+  const v = pov >= 0 ? computeVis(sim, pov) : null;
+  const y0 = Math.max(0, Math.floor(-view.oy / s)), y1 = Math.min(H - 1, Math.floor((ch - view.oy) / s));
+  const x0 = Math.max(0, Math.floor((-view.ox - s) / s)), x1 = Math.min(W - 1, Math.ceil((cw - view.ox) / s));
+  const gap = s >= 9 ? 1 : 0;
+  const rx = (x, y) => view.ox + x * s + (y & 1) * s / 2;
+  // terrain
+  if (gap) { ctx.fillStyle = C.grid; ctx.fillRect(Math.round(rx(0, 0)), Math.round(view.oy), Math.round(s * (W + 0.5)), Math.round(s * H)); }
+  for (let y = y0; y <= y1; y++) {
+    const Y = Math.round(view.oy + y * s), Hh = Math.round(view.oy + (y + 1) * s) - Y - gap;
+    for (let x = x0; x <= x1; x++) {
+      const p = y * W + x, X = Math.round(rx(x, y)), Ww = Math.round(rx(x + 1, y)) - X - gap;
+      const hl = sim.hill[p];
+      const seeHill = hl >= 0 && (pov < 0 || hl === pov || v[p]);
+      ctx.fillStyle = sim.rock[p] ? C.rock : seeHill ? (hl === 0 ? C['hill-red'] : C['hill-black']) : C.ground;
+      ctx.fillRect(X, Y, Ww, Hh);
+    }
+  }
+  // markers
+  if (view.marks) {
+    const pip = Math.max(1.5, s / 9);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const p = y * W + x;
+      for (let c = 0; c < 2; c++) {
+        const m = sim.mk[c][p];
+        if (!m || (pov >= 0 && c !== pov && !v[p])) continue;
+        const X = rx(x, y), Y = view.oy + y * s;
+        if (s >= 10) {
+          ctx.fillStyle = c === 0 ? C.red : C['black-pip'];
+          for (let b = 0; b < 6; b++) if ((m >> b) & 1) ctx.fillRect(X + s * (0.12 + b * 0.13), c === 0 ? Y + s * 0.08 : Y + s * 0.92 - pip, pip, pip);
+        } else {
+          ctx.fillStyle = c === 0 ? C['red-mark'] : C['black-mark'];
+          ctx.fillRect(X, c === 0 ? Y : Y + s / 2, s, s / 2);
+        }
+      }
+    }
+  }
+  // fog
+  if (v) {
+    ctx.fillStyle = C.fog;
+    for (let y = y0; y <= y1; y++) {
+      const Y = Math.round(view.oy + y * s), Hh = Math.round(view.oy + (y + 1) * s) - Y;
+      for (let x = x0; x <= x1; x++) {
+        if (v[y * W + x]) continue;
+        const X = Math.round(rx(x, y)); ctx.fillRect(X, Y, Math.round(rx(x + 1, y)) - X, Hh);
+      }
+    }
+  }
+  // food
+  const big = s >= 16;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `600 ${Math.floor(s * 0.42)}px "IBM Plex Mono", monospace`;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const p = y * W + x, f = sim.food[p];
+    if (!f || (v && !v[p])) continue;
+    const cx = rx(x, y) + s / 2, cy = view.oy + y * s + s / 2;
+    const r = big ? s * 0.36 : Math.max(0.8, s * (0.16 + 0.26 * Math.sqrt(Math.min(f, 9) / 9)));
+    ctx.fillStyle = C.food; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    if (big) { ctx.fillStyle = C['food-ink']; ctx.fillText(String(f), cx, cy + 0.5); }
+  }
+  // ants
+  const L = s * 0.44;
+  for (let i = 0; i < sim.n; i++) {
+    if (!sim.alv[i]) continue;
+    const p = sim.pos[i];
+    if (v && !v[p]) continue;
+    const y = (p / W) | 0, x = p - y * W;
+    if (x < x0 || x > x1 || y < y0 || y > y1) continue;
+    const cx = rx(x, y) + s / 2, cy = view.oy + y * s + s / 2, col = sim.col[i] === 0 ? C.red : C['black-ant'];
+    if (s < 5) { ctx.fillStyle = col; ctx.fillRect(cx - s * 0.4, cy - s * 0.4, s * 0.8, s * 0.8); continue; }
+    const [dx, dy] = DV[sim.dir[i]], px = -dy, py = dx;
+    ctx.beginPath();
+    ctx.moveTo(cx + dx * L, cy + dy * L);
+    ctx.lineTo(cx - dx * L * 0.75 + px * L * 0.62, cy - dy * L * 0.75 + py * L * 0.62);
+    ctx.lineTo(cx - dx * L * 0.75 - px * L * 0.62, cy - dy * L * 0.75 - py * L * 0.62);
+    ctx.closePath();
+    ctx.fillStyle = col; ctx.fill();
+    ctx.lineWidth = Math.max(0.8, s / 14); ctx.strokeStyle = C['ant-edge']; ctx.stroke();
+    if (sim.carry[i]) { ctx.fillStyle = C.food; ctx.beginPath(); ctx.arc(cx - dx * L * 0.15, cy - dy * L * 0.15, Math.max(1.2, s * 0.13), 0, Math.PI * 2); ctx.fill(); }
+  }
+  // selection ring
+  if (selectedAnt >= 0 && sim.alv[selectedAnt]) {
+    const p = sim.pos[selectedAnt], y = (p / W) | 0, x = p - y * W;
+    ctx.strokeStyle = C.select; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(rx(x, y) + s / 2, view.oy + y * s + s / 2, Math.max(5, s * 0.75), 0, Math.PI * 2); ctx.stroke();
+  }
+  if (hoverCell >= 0 && s >= 6) {
+    const y = (hoverCell / W) | 0, x = hoverCell - y * W;
+    ctx.strokeStyle = C.fg; ctx.lineWidth = 1; ctx.strokeRect(Math.round(rx(x, y)) + 0.5, Math.round(view.oy + y * s) + 0.5, Math.round(s) - 1, Math.round(s) - 1);
+  }
+  $('#zoomLbl').textContent = `${view.s.toFixed(view.s < 10 ? 1 : 0)} px/cell`;
+  updatePanel();
+}
+
+// ---------- Side panel ----------
+function updatePanel() {
+  const sim = M.sim;
+  const r = sim.round;
+  $('#roundNow').textContent = fmt(r);
+  const sc = $('#scrub'); if (document.activeElement !== sc || !scrubbing) sc.value = r;
+  $('#frontierBar').style.width = (100 * M.frontier / M.rounds) + '%';
+  const s0 = sim.score(0), s1 = sim.score(1);
+  $('#redScore').textContent = fmt(s0); $('#blackScore').textContent = fmt(s1);
+  $('#redAlive').textContent = `${sim.alive[0]} / ${sim.initial[0]}`; $('#blackAlive').textContent = `${sim.alive[1]} / ${sim.initial[1]}`;
+  $('#redCarry').textContent = sim.carrying(0); $('#blackCarry').textContent = sim.carrying(1);
+  $('#redLost').textContent = sim.initial[0] - sim.alive[0]; $('#blackLost').textContent = sim.initial[1] - sim.alive[1];
+  $('#loose').textContent = fmt(sim.foodLoose());
+  const vd = $('#verdict');
+  if (r === M.rounds) {
+    vd.hidden = false;
+    vd.textContent = s0 === s1 ? `Draw at ${fmt(s0)} food each.` : `${s0 > s1 ? 'Red' : 'Black'} (${s0 > s1 ? M.names[0] : M.names[1]}) wins, ${fmt(Math.max(s0, s1))} to ${fmt(Math.min(s0, s1))}.`;
+  } else vd.hidden = true;
+  drawChart($('#chartScore'), M.hist.score, r);
+  drawChart($('#chartAlive'), M.hist.alive, r);
+  updateInspector();
+}
+
+function niceMax(v) { if (v <= 10) return 10; const e = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * e >= v) return m * e; return v; }
+function drawChart(cv, series, cur) {
+  const [w, h, dpr] = sizeCanvas(cv);
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const n = M.hist.n; let mx = 0;
+  for (const a of series) for (let i = 0; i < n; i++) if (a[i] > mx) mx = a[i];
+  const ymax = niceMax(Math.max(1, mx));
+  const L = 34, R = 8, T = 8, B = 18, pw = w - L - R, ph = h - T - B;
+  const X = (round) => L + pw * round / M.rounds, Y = (val) => T + ph * (1 - val / ymax);
+  g.font = '10.5px "IBM Plex Mono", monospace'; g.fillStyle = C.muted; g.strokeStyle = C.line; g.lineWidth = 1;
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  for (let k = 0; k <= 2; k++) { const val = ymax * k / 2, yy = Math.round(Y(val)) + 0.5; g.beginPath(); g.moveTo(L, yy); g.lineTo(L + pw, yy); g.stroke(); g.fillText(fmt(val), L - 5, yy); }
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  for (let k = 0; k <= 2; k++) { const rr = M.rounds * k / 2; g.fillText(rr >= 1000 ? fmt(rr / 1000) + 'k' : fmt(rr), Math.min(Math.max(X(rr), L + 8), L + pw - 10), T + ph + 4); }
+  const colors = [C.red, C.black];
+  series.forEach((a, c) => {
+    g.strokeStyle = colors[c]; g.lineWidth = 1.6; g.beginPath();
+    const stepI = Math.max(1, Math.floor(n / pw));
+    for (let i = 0; i < n; i += stepI) { const xx = X(i * SAMPLE), yy = Y(a[i]); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); }
+    if (n > 1) g.lineTo(X((n - 1) * SAMPLE), Y(a[n - 1]));
+    g.stroke();
+  });
+  const ci = Math.min(n - 1, Math.floor(cur / SAMPLE));
+  g.strokeStyle = C.fg; g.globalAlpha = 0.35; g.beginPath(); g.moveTo(Math.round(X(cur)) + 0.5, T); g.lineTo(Math.round(X(cur)) + 0.5, T + ph); g.stroke(); g.globalAlpha = 1;
+  series.forEach((a, c) => { g.fillStyle = colors[c]; g.beginPath(); g.arc(X(ci * SAMPLE), Y(a[ci]), 3, 0, Math.PI * 2); g.fill(); });
+}
+
+function esc(t) { return String(t).replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch])); }
+function updateInspector() {
+  const sim = M.sim, el = $('#inspect');
+  let p = hoverCell, out = [];
+  if (selectedAnt >= 0) {
+    const i = selectedAnt, c = sim.col[i];
+    out.push(`<div><span class="k">Following</span> ${c ? 'black' : 'red'} ant #${i} <button class="btn small" id="unfollow" type="button">Stop</button></div>`);
+    if (!sim.alv[i]) out.push('<div>Died in battle.</div>');
+    else {
+      const st = sim.st[i];
+      out.push(`<div><span class="k">state</span> ${st} <code>${esc(M.brains[c].text[st])}</code></div>`);
+      out.push(`<div><span class="k">dir</span> ${sim.dir[i]} · <span class="k">resting</span> ${sim.rest[i]} · <span class="k">food</span> ${sim.carry[i]}</div>`);
+      if (p < 0) p = sim.pos[i];
+    }
+  }
+  if (p >= 0) {
+    const x = p % sim.W, y = (p / sim.W) | 0;
+    out.push(`<div><span class="k">cell</span> (${x}, ${y})</div>`);
+    if (view.pov >= 0 && !computeVis(sim, view.pov)[p]) out.push(`<div class="k">Out of sight for the ${view.pov ? 'black' : 'red'} colony.</div>`);
+    else if (sim.rock[p]) out.push('<div>rock</div>');
+    else {
+      const bits = [];
+      if (sim.hill[p] >= 0) bits.push(`${sim.hill[p] ? 'black' : 'red'} anthill`);
+      if (sim.food[p]) bits.push(`${sim.food[p]} food`);
+      for (const c of [0, 1]) if (sim.mk[c][p]) { let b = ''; for (let k = 0; k < 6; k++) if ((sim.mk[c][p] >> k) & 1) b += k; bits.push(`${c ? 'black' : 'red'} marks ${b}`); }
+      out.push(`<div>${bits.length ? bits.join(' · ') : 'clear'}</div>`);
+      const a = sim.antAt[p];
+      if (a >= 0 && a !== selectedAnt) {
+        out.push(`<div><span class="k">ant</span> ${sim.col[a] ? 'black' : 'red'} #${a}, dir ${sim.dir[a]}, food ${sim.carry[a]}, resting ${sim.rest[a]}</div>`);
+        out.push(`<div><span class="k">state</span> ${sim.st[a]} <code>${esc(M.brains[sim.col[a]].text[sim.st[a]])}</code></div>`);
+      }
+    }
+  }
+  if (!out.length) out.push('<span class="k">Hover a cell. Click an ant to follow it.</span>');
+  el.innerHTML = out.join('');
+  const u = $('#unfollow'); if (u) u.onclick = () => { selectedAnt = -1; dirty = true; };
+}
+
+// ---------- Map interaction ----------
+let drag = null;
+canvas.addEventListener('pointerdown', (e) => { canvas.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, ox: view.ox, oy: view.oy, moved: false }; });
+canvas.addEventListener('pointermove', (e) => {
+  const r = canvas.getBoundingClientRect();
+  if (drag) {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 3) { drag.moved = true; canvas.classList.add('dragging'); }
+    if (drag.moved) { view.ox = drag.ox + dx; view.oy = drag.oy + dy; dirty = true; }
+  }
+  const c = cellAt(e.clientX - r.left, e.clientY - r.top);
+  if (c !== hoverCell) { hoverCell = c; dirty = true; }
+});
+canvas.addEventListener('pointerup', (e) => {
+  canvas.classList.remove('dragging');
+  if (drag && !drag.moved && M) {
+    const r = canvas.getBoundingClientRect(), c = cellAt(e.clientX - r.left, e.clientY - r.top);
+    const a = c >= 0 ? M.sim.antAt[c] : -1;
+    const hidden = a >= 0 && view.pov >= 0 && !computeVis(M.sim, view.pov)[c];
+    selectedAnt = a >= 0 && !hidden ? a : -1; dirty = true;
+  }
+  drag = null;
+});
+canvas.addEventListener('pointerleave', () => { hoverCell = -1; dirty = true; });
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  zoomAt(view.s * Math.pow(1.0018, -e.deltaY), e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+const centerZoom = (ns) => zoomAt(ns, canvas.clientWidth / 2, canvas.clientHeight / 2);
+$('#zIn').onclick = () => centerZoom(view.s * 1.4);
+$('#zOut').onclick = () => centerZoom(view.s / 1.4);
+$('#zFit').onclick = () => fitView();
+document.querySelectorAll('[data-z]').forEach(b => b.onclick = () => {
+  // zoom on the followed ant if there is one, else the centre
+  const z = +b.dataset.z;
+  if (selectedAnt >= 0 && M.sim.alv[selectedAnt]) {
+    const p = M.sim.pos[selectedAnt], W = M.sim.W, y = (p / W) | 0, x = p - y * W;
+    view.s = z; view.ox = canvas.clientWidth / 2 - (x * z + (y & 1) * z / 2 + z / 2); view.oy = canvas.clientHeight / 2 - (y * z + z / 2); dirty = true;
+  } else centerZoom(z);
+});
+document.querySelectorAll('[data-pov]').forEach(b => b.onclick = () => {
+  view.pov = +b.dataset.pov;
+  document.querySelectorAll('[data-pov]').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+  dirty = true;
+});
+$('#marksBtn').onclick = (e) => { view.marks = !view.marks; e.currentTarget.setAttribute('aria-pressed', String(view.marks)); dirty = true; };
+new ResizeObserver(() => { if (view.fitted) fitView(); dirty = true; }).observe($('#mapwrap'));
+['#chartScore', '#chartAlive'].forEach(s => new ResizeObserver(() => { dirty = true; }).observe($(s)));
+
+// ---------- Transport ----------
+const rel = (d) => { stopPlay(); seek(M.sim.round + d); };
+$('#tStart').onclick = () => { stopPlay(); seek(0); };
+$('#tBack100').onclick = () => rel(-100);
+$('#tBack').onclick = () => rel(-1);
+$('#tFwd').onclick = () => rel(1);
+$('#tFwd100').onclick = () => rel(100);
+$('#tEnd').onclick = () => { stopPlay(); seek(M.rounds); };
+$('#tPlay').onclick = () => { if (playing === 1) stopPlay(); else { if (M.sim.round >= M.rounds) seek(0); setPlay(1); } };
+$('#tRev').onclick = () => { if (playing === -1) stopPlay(); else setPlay(-1); };
+$('#speed').value = settings.speed;
+$('#speed').onchange = (e) => { settings.speed = e.target.value; saveSettings(); };
+let scrubbing = false;
+$('#scrub').addEventListener('input', (e) => { scrubbing = true; stopPlay(); $('#roundNow').textContent = fmt(+e.target.value); seek(+e.target.value); });
+$('#scrub').addEventListener('change', () => { scrubbing = false; });
+document.addEventListener('keydown', (e) => {
+  if (!M || !$('#editor').hidden) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (e.key === ' ') { e.preventDefault(); $('#tPlay').click(); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); rel(e.shiftKey ? 100 : 1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); rel(e.shiftKey ? -100 : -1); }
+  else if (e.key === 'Home') { e.preventDefault(); $('#tStart').click(); }
+  else if (e.key === 'End') { e.preventDefault(); $('#tEnd').click(); }
+  else if (e.key === '+' || e.key === '=') centerZoom(view.s * 1.4);
+  else if (e.key === '-') centerZoom(view.s / 1.4);
+});
+
+// ---------- Setup controls ----------
+$('#redSel').onchange = (e) => { settings.red = e.target.value; saveSettings(); };
+$('#blackSel').onchange = (e) => { settings.black = e.target.value; saveSettings(); };
+$('#worldSel').onchange = (e) => { settings.world = e.target.value; saveSettings(); fillSelects(); };
+$('#worldSeed').value = settings.worldSeed;
+$('#worldSeed').onchange = (e) => { settings.worldSeed = Math.max(1, e.target.value | 0); saveSettings(); };
+$('#reroll').onclick = () => { settings.worldSeed = 1 + Math.floor(Math.random() * 99999); $('#worldSeed').value = settings.worldSeed; saveSettings(); startFresh(); };
+$('#simSeed').value = settings.simSeed;
+$('#simSeed').onchange = (e) => { settings.simSeed = Math.max(0, e.target.value | 0); saveSettings(); };
+$('#rounds').value = settings.rounds;
+$('#rounds').onchange = (e) => { settings.rounds = Math.max(1, Math.min(1000000, e.target.value | 0)); e.target.value = settings.rounds; saveSettings(); };
+$('#swap').onclick = () => { [settings.red, settings.black] = [settings.black, settings.red]; saveSettings(); fillSelects(); startFresh(); };
+function startFresh() { if (newMatch()) { $('#duel').hidden = true; } }
+$('#start').onclick = () => startFresh();
+
+$('#dumpBtn').onclick = () => {
+  const txt = `random seed: ${settings.simSeed}\n\n` + M.sim.dump() + '\n';
+  const msg = $('#dumpMsg');
+  navigator.clipboard.writeText(txt).then(() => { msg.textContent = `Copied round ${fmt(M.sim.round)}.`; }, () => { openEditor('dump', null, txt); });
+};
+
+// ---------- Play both sides (tournament scoring, section 3.2) ----------
+$('#duelBtn').onclick = () => {
+  const world = currentWorld();
+  const A = findBrain(settings.red), B = findBrain(settings.black);
+  const pa = parseBrain(A.src), pb = parseBrain(B.src);
+  const err = $('#matchErr');
+  if (world.errors.length || pa.errors.length || pb.errors.length) { err.textContent = 'Fix the brain and world errors first.'; err.hidden = false; return; }
+  const rounds = Math.max(1, Math.min(1000000, settings.rounds | 0));
+  const games = [new Sim(world, [pa, pb], settings.simSeed >>> 0), new Sim(world, [pb, pa], settings.simSeed >>> 0)];
+  const box = $('#duel'); box.hidden = false;
+  const btn = $('#duelBtn'); btn.disabled = true;
+  const id = ++duelId;
+  const work = () => {
+    if (id !== duelId) return;
+    const t0 = performance.now();
+    for (const g of games) while (g.round < rounds && performance.now() - t0 < 20) for (let k = 0; k < 20 && g.round < rounds; k++) g.doRound();
+    const done = games.every(g => g.round >= rounds);
+    const prog = Math.round(100 * (games[0].round + games[1].round) / (2 * rounds));
+    if (!done) { box.innerHTML = `<p class="hint">Playing both sides… ${prog}%</p>`; setTimeout(work, 0); return; }
+    btn.disabled = false;
+    const pts = [0, 0];
+    const rows = games.map((g, gi) => {
+      const sr = g.score(0), sb = g.score(1);
+      const aScore = gi === 0 ? sr : sb, bScore = gi === 0 ? sb : sr;
+      if (aScore > bScore) pts[0] += 2; else if (bScore > aScore) pts[1] += 2; else { pts[0]++; pts[1]++; }
+      return `<tr><td>${gi === 0 ? 'A red, B black' : 'B red, A black'}</td><td class="n">${fmt(aScore)}</td><td class="n">${fmt(bScore)}</td></tr>`;
+    });
+    box.innerHTML = `<table><tr><th>Game</th><th>A</th><th>B</th></tr>${rows.join('')}<tr><th>Points</th><td class="n"><b>${pts[0]}</b></td><td class="n"><b>${pts[1]}</b></td></tr></table>
+      <p class="hint">A: ${esc(A.name)}<br>B: ${esc(B.name)}<br>Win 2, draw 1, as in the tournament.</p>`;
+  };
+  work();
+};
+let duelId = 0;
+
+// ---------- Editor ----------
+let ed = null; // { kind: 'brain'|'world'|'dump', id, slot }
+function openEditor(kind, id, text, slot) {
+  ed = { kind, id, slot, armedDelete: false };
+  const item = kind === 'brain' ? findBrain(id) : kind === 'world' ? findWorld(id) : null;
+  $('#edTitle').textContent = kind === 'brain' ? (item ? 'Brain' : 'New brain') : kind === 'world' ? (item ? 'World' : 'Import world') : 'State dump';
+  $('#edName').value = item ? item.name : kind === 'brain' ? 'My brain' : kind === 'world' ? 'My world' : `Round ${M.sim.round}`;
+  $('#edText').value = text != null ? text : item ? item.src : '';
+  const builtin = !!(item && item.builtin);
+  const isDump = kind === 'dump';
+  $('#edSave').hidden = isDump || builtin || !item;
+  $('#edSaveNew').hidden = isDump;
+  $('#edSaveNew').textContent = item ? 'Save as new' : 'Save';
+  $('#edDelete').hidden = isDump || builtin || !item;
+  $('#edDelete').textContent = 'Delete';
+  $('#edName').disabled = isDump; $('#edFile').disabled = isDump;
+  $('#edUse').hidden = true;
+  $('#edErr').hidden = true; $('#edOk').hidden = true;
+  $('#edHint').textContent = isDump ? 'Copying was blocked here, so the dump is shown instead. Select it and copy.' : builtin ? 'Built-in entries are read-only. Save a copy to change them. Saved items stay in this browser.' : 'Saved brains and worlds stay in this browser.';
+  $('#edFile').value = '';
+  $('#editor').hidden = false;
+  $('#edText').focus();
+}
+function closeEditor() { $('#editor').hidden = true; ed = null; }
+function validateEd() {
+  const src = $('#edText').value;
+  const res = ed.kind === 'brain' ? parseBrain(src) : parseWorld(src);
+  const e = $('#edErr'), ok = $('#edOk');
+  if (res.errors.length) { e.textContent = res.errors.slice(0, 8).join('\n'); e.hidden = false; ok.hidden = true; return null; }
+  e.hidden = true;
+  ok.textContent = ed.kind === 'brain' ? `Valid: ${res.n} states.` : `Valid: ${res.W}×${res.H}.`;
+  ok.hidden = false;
+  return src;
+}
+function persist() { const a = store.set('ants:brains', userBrains), b = store.set('ants:worlds', userWorlds); return a && b; }
+function saveEd(asNew) {
+  const src = validateEd(); if (src == null) return;
+  const name = $('#edName').value.trim() || 'Untitled';
+  const list = ed.kind === 'brain' ? userBrains : userWorlds;
+  let item = !asNew && list.find(x => x.id === ed.id);
+  if (item) { item.name = name; item.src = src; }
+  else { item = { id: (ed.kind === 'brain' ? 'u:' : 'uw:') + Date.now().toString(36), name, src }; list.push(item); ed.id = item.id; }
+  const okSaved = persist();
+  if (ed.kind === 'brain') { if (ed.slot) settings[ed.slot] = item.id; }
+  else settings.world = item.id;
+  saveSettings(); fillSelects();
+  $('#edOk').textContent = okSaved ? `Saved “${name}”. Press Start match to use it.` : `Using “${name}” for now. This browser blocked storage, so it will be gone after a reload.`;
+  $('#edSave').hidden = false; $('#edDelete').hidden = false; $('#edSaveNew').textContent = 'Save as new';
+}
+$('#edSave').onclick = () => saveEd(false);
+$('#edSaveNew').onclick = () => saveEd(true);
+$('#edClose').onclick = closeEditor;
+$('#editor').addEventListener('click', (e) => { if (e.target.id === 'editor') closeEditor(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#editor').hidden) closeEditor(); });
+$('#edText').addEventListener('input', () => { $('#edOk').hidden = true; });
+$('#edCopy').onclick = () => {
+  const t = $('#edText');
+  navigator.clipboard.writeText(t.value).then(() => { $('#edOk').textContent = 'Copied.'; $('#edOk').hidden = false; }, () => { t.focus(); t.select(); $('#edOk').textContent = 'Text selected. Copy it with your keyboard.'; $('#edOk').hidden = false; });
+};
+$('#edDelete').onclick = () => {
+  if (!ed.armedDelete) { ed.armedDelete = true; $('#edDelete').textContent = 'Click again to delete'; return; }
+  if (ed.kind === 'brain') userBrains = userBrains.filter(b => b.id !== ed.id); else userWorlds = userWorlds.filter(w => w.id !== ed.id);
+  persist(); fillSelects(); saveSettings(); closeEditor();
+};
+$('#edFile').onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { $('#edText').value = rd.result; if (!ed.id || findBrain(ed.id)?.builtin || findWorld(ed.id)?.builtin) $('#edName').value = f.name.replace(/\.[^.]+$/, ''); validateEd(); };
+  rd.readAsText(f);
+};
+$('#redEdit').onclick = () => openEditor('brain', settings.red, null, 'red');
+$('#blackEdit').onclick = () => openEditor('brain', settings.black, null, 'black');
+$('#newBrain').onclick = () => openEditor('brain', null, BUILTIN_BRAINS[0].src, 'red');
+$('#newWorld').onclick = () => openEditor('world', null, BUILTIN_WORLDS[2].src);
+$('#worldEdit').onclick = () => {
+  if (settings.world === 'gen') openEditor('world', null, worldToText(generateWorld(settings.worldSeed)));
+  else openEditor('world', settings.world);
+  if (settings.world === 'gen') $('#edName').value = `Contest world ${settings.worldSeed}`;
+};
+
+// ---------- Theme + boot ----------
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors);
+new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+readColors();
+fillSelects();
+if (!newMatch()) { settings.red = 'b:lh'; settings.black = 'b:sample'; settings.world = 'gen'; fillSelects(); newMatch(); }
+requestAnimationFrame(loop);
+// Open on a match already under way so the map has something to show.
+seek(Math.min(1500, M.rounds));
+</script>
+</body></html>
