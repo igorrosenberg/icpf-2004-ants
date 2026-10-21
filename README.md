@@ -27,6 +27,9 @@ https://igorrosenberg.github.io/icpf-2004-ants/.
 
 - `index.html` — the whole simulator (engine + UI), self-contained
 - `samples/` — sample brains and worlds from the contest spec
+- `docs/maxi.html` — design essay: the ANT language as an assembler, and MAXI, a
+  higher level language of composable behaviors and strategies
+  (https://igorrosenberg.github.io/icpf-2004-ants/docs/maxi.html)
 
 ## References
 

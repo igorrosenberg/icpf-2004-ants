@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The MAXI Ant Language</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+<style>
+/* Layout: one reading column (~68ch) with wide breakout panes for paired code and diagrams; sticky contents rail on wide screens. */
+:root {
+  --paper: #f3f5f1;
+  --ink: #1c221f;
+  --muted: #5a6560;
+  --rule: #d3d9d3;
+  --pane: #e7ebe5;
+  --ant: #b0372a;      /* low level: ANT, the machine */
+  --maxi: #24705f;     /* high level: MAXI */
+  --ant-soft: #f2dcd7;
+  --maxi-soft: #d4e8e1;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #131715; --ink: #e2e7e3; --muted: #98a39d; --rule: #2b332f; --pane: #1b211e;
+    --ant: #e8786a; --maxi: #69c2ac; --ant-soft: #3a211d; --maxi-soft: #17332c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #131715; --ink: #e2e7e3; --muted: #98a39d; --rule: #2b332f; --pane: #1b211e;
+  --ant: #e8786a; --maxi: #69c2ac; --ant-soft: #3a211d; --maxi-soft: #17332c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-body); font-size: 18px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 48px; }
+@media (min-width: 1180px) { .wrap { grid-template-columns: 200px minmax(0, 1fr); } }
+nav.toc { display: none; }
+@media (min-width: 1180px) {
+  nav.toc { display: block; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 32px); align-self: start; padding-top: 140px;
+    font-family: var(--f-display); font-size: 14px; line-height: 1.5; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s; }
+  nav.toc li { counter-increment: s; }
+  nav.toc a { color: var(--muted); text-decoration: none; display: grid; grid-template-columns: 22px 1fr; }
+  nav.toc a::before { content: counter(s); color: var(--rule); font-variant-numeric: tabular-nums; }
+  nav.toc a:hover, nav.toc a:focus-visible { color: var(--ink); }
+}
+main { min-width: 0; }
+.col { max-width: 68ch; }
+header.top { padding-block: 56px 28px; border-bottom: 1px solid var(--rule); margin-bottom: 28px; }
+.kicker { font-family: var(--f-mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(40px, 7vw, 68px); line-height: 1.0; letter-spacing: -.01em; margin: 0 0 18px; text-wrap: balance; }
+h1 .a { color: var(--ant); } h1 .m { color: var(--maxi); }
+.lede { font-size: 21px; line-height: 1.5; color: var(--ink); margin: 0; max-width: 60ch; }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: 30px; line-height: 1.15; margin: 64px 0 12px; text-wrap: balance; }
+h2 .n { font-family: var(--f-mono); font-weight: 500; font-size: 15px; color: var(--muted); display: block; letter-spacing: .04em; margin-bottom: 6px; }
+h3 { font-family: var(--f-display); font-weight: 600; font-size: 21px; margin: 32px 0 6px; }
+p { margin: 0 0 16px; }
+a { color: var(--maxi); }
+a:focus-visible { outline: 2px solid var(--maxi); outline-offset: 2px; }
+code { font-family: var(--f-mono); font-size: .84em; background: var(--pane); padding: 1px 5px; border-radius: 3px; }
+pre { font-family: var(--f-mono); font-size: 14px; line-height: 1.55; background: var(--pane); padding: 14px 16px; margin: 0; overflow-x: auto; border-radius: 4px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+pre .c { color: var(--muted); }
+pre .k { color: var(--maxi); font-weight: 500; }
+pre .o { color: var(--ant); font-weight: 500; }
+.lbl { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 6px; color: var(--muted); }
+.lbl.ant { color: var(--ant); } .lbl.maxi { color: var(--maxi); }
+figure { margin: 24px 0 28px; }
+figcaption { font-size: 15px; color: var(--muted); margin-top: 8px; max-width: 68ch; }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin: 24px 0; }
+@media (min-width: 820px) { .pair { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.pair > div { min-width: 0; }
+.tw { overflow-x: auto; margin: 20px 0 28px; }
+table { border-collapse: collapse; font-size: 16px; line-height: 1.45; min-width: 560px; width: 100%; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--rule); }
+th { font-family: var(--f-display); font-weight: 600; font-size: 14px; letter-spacing: .03em; color: var(--muted); }
+td.num { font-variant-numeric: tabular-nums; font-family: var(--f-mono); font-size: 14px; }
+.claims { list-style: none; padding: 0; margin: 28px 0 0; display: grid; gap: 10px; max-width: 68ch; }
+.claims li { padding-left: 22px; position: relative; }
+.claims li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 9px; height: 9px; background: var(--maxi);
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+.note { border-left: 3px solid var(--ant); padding: 4px 0 4px 16px; margin: 20px 0; font-size: 17px; }
+.note.m { border-color: var(--maxi); }
+.pipe { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 20px 0 8px; }
+.pipe div { flex: 1 1 150px; min-width: 0; border: 1px solid var(--rule); border-radius: 4px; padding: 10px 12px; font-size: 15px; line-height: 1.4; background: var(--paper); }
+.pipe b { font-family: var(--f-display); font-weight: 600; display: block; font-size: 15px; color: var(--maxi); }
+.pipe div.end b { color: var(--ant); }
+svg { display: block; max-width: 100%; height: auto; }
+svg text { font-family: var(--f-mono); font-size: 12px; fill: var(--ink); }
+svg .mut { fill: var(--muted); }
+svg .box { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; }
+svg .boxm { fill: var(--maxi-soft); stroke: var(--maxi); stroke-width: 1.4; }
+svg .boxa { fill: var(--ant-soft); stroke: var(--ant); stroke-width: 1.4; }
+svg .ln { stroke: var(--ink); stroke-width: 1.3; fill: none; }
+svg .lnm { stroke: var(--maxi); stroke-width: 1.5; fill: none; }
+svg .lna { stroke: var(--ant); stroke-width: 1.5; fill: none; }
+svg .dotm { fill: var(--maxi); } svg .dota { fill: var(--ant); } svg .doti { fill: var(--ink); }
+svg .t-m { fill: var(--maxi); } svg .t-a { fill: var(--ant); }
+svg .big { font-family: var(--f-display); font-size: 15px; font-weight: 600; }
+footer { margin-top: 72px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 15px; color: var(--muted); max-width: 68ch; }
+@media (max-width: 520px) { body { font-size: 17px; } .lede { font-size: 19px; } h2 { font-size: 26px; } pre { font-size: 13px; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#assembler">ANT as an assembler</a></li>
+    <li><a href="#prior">What 2004 teams built</a></li>
+    <li><a href="#glance">MAXI at a glance</a></li>
+    <li><a href="#functions">Functions</a></li>
+    <li><a href="#arguments">Arguments without state</a></li>
+    <li><a href="#compile">Static compilation</a></li>
+    <li><a href="#state">State</a></li>
+    <li><a href="#visual">Seeing the program</a></li>
+    <li><a href="#testing">Testing</a></li>
+    <li><a href="#next">Where to start</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="top">
+  <p class="kicker">ICFP 2004 · Dinner with Ambiants · design essay</p>
+  <h1>From <span class="a">ANT</span> to <span class="m">MAXI</span></h1>
+  <p class="lede">The ant brain language is an assembler for a machine with no registers, no stack and no memory except its own program counter. This essay evaluates it, then designs MAXI, a higher level language for composing strategies out of behaviors, and works through functions, arguments, state, compilation, visualisation and testing.</p>
+  <ul class="claims">
+    <li>ANT is closer to a next-address microcode than to a normal assembler: every instruction names its successors, and the program counter is the ant's only private memory.</li>
+    <li>With no return stack, a MAXI function call is an inlined copy. Tail calls are free. Non-tail calls cost states, and the 10,000-state budget is about seven times what the best 2004 brains used, so copying is affordable.</li>
+    <li>Function arguments are compile-time values. Each distinct argument tuple produces a specialised copy, and the real hidden arguments are the exits a behavior returns through.</li>
+    <li>State does exist, and it lives in the program counter: a variable with <i>k</i> values is <i>k</i> copies of the code where it is live. Reading or writing it costs zero rounds, which makes it the fastest memory the ant has.</li>
+    <li>Testing splits cleanly. Compilers and single behaviors get exact, trace-level tests. Strategies get statistics, because one shared random stream makes every game chaotic.</li>
+  </ul>
+</header>
+
+<section id="assembler">
+<h2><span class="n">1</span>ANT is an assembler, and an odd one</h2>
+<div class="col">
+<p>A brain is a list of at most 10,000 numbered states. Each state holds one of eight instructions, and every instruction names the state (or the two states) to go to next. There is no fall-through to the next line, no registers, no arithmetic, no indirect jump, and no call or return. Every instruction an ant executes costs one round of the game, and a successful <code>Move</code> also puts the ant to rest for 14 rounds, so a step costs 15 rounds.</p>
+<p>That is recognisably machine code: opcodes, operands and branch targets, written as numbers. The closest historical relatives are not x86 or the 6502 but drum-memory machines such as the IBM 650, where each instruction carried the address of its successor, and horizontal microcode, where each micro-instruction holds a next-address field and a branch condition. ANT is a microcode sequencer with ant sensors wired to its condition inputs.</p>
+</div>
+
+<div class="tw">
+<table>
+  <thead><tr><th>Assembler feature</th><th>ANT equivalent</th><th>Consequence for a compiler</th></tr></thead>
+  <tbody>
+    <tr><td>Opcode and operands</td><td><code>Sense Ahead 4 7 Food</code>, <code>Mark 2 9</code></td><td>Direct one-to-one emission.</td></tr>
+    <tr><td>Labels</td><td>None. States are raw integers.</td><td>The first job of any tool is symbolic labels.</td></tr>
+    <tr><td>Fall-through</td><td>None. Every successor is explicit.</td><td>Code layout is free; ordering states has no cost.</td></tr>
+    <tr><td>Conditional branch</td><td><code>Sense</code>, <code>Move</code>, <code>PickUp</code>, <code>Flip</code> all branch.</td><td>Side effects and tests are fused: a failed <code>Move</code> is a test.</td></tr>
+    <tr><td>Unconditional jump / NOP</td><td>None. A jump must be folded into the previous instruction.</td><td>A deliberate pause needs a dummy instruction. The Red Team used <code>sense here home</code>; ANTisocial used <code>Flip 1</code>.</td></tr>
+    <tr><td>Registers, stack</td><td>None.</td><td>No call/return. Subroutines must be inlined.</td></tr>
+    <tr><td>RAM</td><td>6 marker bits per cell, per colour, shared by the whole colony and tied to a position.</td><td>Memory is spatial and public: closer to a blackboard than to a heap.</td></tr>
+    <tr><td>Program counter</td><td>The state number, 0 to 9999 (about 13.3 bits).</td><td>The only private, mutable memory an ant has.</td></tr>
+    <tr><td>Interrupts</td><td>None. Danger is noticed only if the code senses for it.</td><td>Preemption has to be compiled into polling.</td></tr>
+    <tr><td>Clock</td><td>One instruction per round, <code>Move</code> = 15 rounds.</td><td>Code length on a path is time. Tests are not free.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="col">
+<p>Two more facts shape everything that follows. First, all ants run the same program from state 0, facing east, so any division of labour must be derived from where an ant starts. The Red Team wrote a generator that identified each of the 91 ants in its hill by position so that each could get its own program. Second, an ant cannot read its own direction or rest counter. It can read whether it carries food, through a quirk: the ant itself occupies its cell, so <code>Sense Here FriendWithFood</code> is true exactly when it is carrying food.</p>
+<p>The 10,000-state budget is generous. The best 2004 brains were small:</p>
+</div>
+
+<div class="tw">
+<table>
+  <thead><tr><th>Brain</th><th>States</th><th>Share of budget</th><th>Instruction mix</th></tr></thead>
+  <tbody>
+    <tr><td>Red Team, final entry</td><td class="num">1,386</td><td class="num">14%</td><td>642 Sense, 369 Turn, 105 Move, 105 Mark, 83 Flip, 79 Unmark</td></tr>
+    <tr><td>ANTisocial, fixed</td><td class="num">409</td><td class="num">4%</td><td>222 Flip (mostly <code>Flip 1</code> wait loops), 118 Sense, 38 Turn, 21 Move</td></tr>
+    <tr><td>Cambridge, Linepithema humile</td><td class="num">382</td><td class="num">4%</td><td>142 Sense, 142 Turn, 36 Move, 31 Flip, 19 Mark</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="col">
+<p>Counted from the brains in the project's references folder. Almost half the winning brain is <code>Sense</code>: a brain spends most of its code deciding, and very little acting.</p>
+<p class="note">Verdict: ANT is an excellent target and a poor source. It is complete for its machine, it is tiny, and its semantics fit on one page. But loops, subroutines, roles and phases are all invisible in it. Writing ANT by hand is writing microcode. Every team that did well wrote a compiler first.</p>
+</div>
+</section>
+
+<section id="prior">
+<h2><span class="n">2</span>What the 2004 teams built</h2>
+<div class="col">
+<p>The two compilers in our references are the two seeds of MAXI.</p>
+<p><b>Red Team, <code>antc</code>.</b> A C-like language with <code>if</code>, <code>while</code>, <code>goto</code>, labels and <code>&amp;&amp; || !</code> over sense conditions, plus m4 macros for reuse. Their notes say the boolean operators were "greatly beneficial". The macros show where the language ran out. They needed a hand-built <code>label()</code> trick to keep labels unique when a macro was expanded twice, which is the hygiene problem of every textual macro system. They passed code as strings, as in <code>ray_wander_until(`sense here marker 2 || …')</code>, and they passed labels to jump to on failure, as in <code>ray_follow_path(2, 3, `food', `restart_find_food_rmdm2')</code>. That last argument is a continuation, written by hand.</p>
+<p><b>ANTisocial, OCaml combinators.</b> Martin Jambon's library defines a fragment as <code>type f = string -&gt; string -&gt; instr</code>: give it a success label and a failure label, and it produces code. On top of that sit <code>l_and</code>, <code>l_or</code>, <code>l_not</code>, <code>l_while</code>, <code>l_if</code>, <code>l_choose</code> and <code>l_switch</code>. This is continuation-passing style with exactly two continuations. It composes well, and <code>l_not</code> is just swapping the two labels.</p>
+<p>MAXI keeps the structured control of <code>antc</code> and the typed, composable fragments of ANTisocial, and generalises the two continuations to any number of named exits.</p>
+</div>
+</section>
+
+<section id="glance">
+<h2><span class="n">3</span>MAXI at a glance</h2>
+<div class="col">
+<p>MAXI has three kinds of definitions. A <b>condition</b> is a pure boolean expression over senses. A <b>behavior</b> is a piece of control with one entry and a set of named exits. A <b>strategy</b> wires behaviors together by connecting exits to entries, and assigns roles. Everything resolves at compile time into a single ANT file.</p>
+</div>
+
+<div class="pair">
+<div>
+<p class="lbl maxi">MAXI: conditions and behaviors</p>
+<pre><code><span class="c">-- markers are declared by name and type; the compiler allocates bits</span>
+<span class="k">marker</span> trail : cycle3   <span class="c">-- directed trail, 3 phases, uses 2 bits</span>
+<span class="k">marker</span> guard : flag
+
+<span class="k">cond</span> blocked(d: Dir) =
+  sense d Rock <span class="k">or</span> sense d Friend <span class="k">or</span> sense d Foe
+
+<span class="k">cond</span> danger =
+     (sense LeftAhead Foe <span class="k">and</span>
+        (sense Ahead Foe <span class="k">or</span> sense RightAhead Foe))
+  <span class="k">or</span> (sense Ahead Foe <span class="k">and</span> sense RightAhead Foe)
+
+<span class="k">behavior</span> step(d: Dir) <span class="k">exits</span> moved, blocked {
+  face d                 <span class="c">-- 0 or 1 Turn, chosen at compile time</span>
+  move <span class="k">else exit</span> blocked
+  <span class="k">exit</span> moved
+}
+
+<span class="k">behavior</span> wander <span class="k">exits</span> found {
+  <span class="k">loop</span> {
+    <span class="k">if</span> sense Ahead Food { move <span class="k">else continue</span>; <span class="k">exit</span> found }
+    <span class="k">choose</span> {
+      1: turn left
+      1: turn right
+      1: move <span class="k">else</span> skip
+    }
+  }
+}</code></pre>
+</div>
+<div>
+<p class="lbl maxi">MAXI: a strategy</p>
+<pre><code><span class="k">strategy</span> harvester {
+  <span class="k">start</span> forage
+  forage   = wander                 [found  -&gt; load]
+  load     = pickup                 [ok     -&gt; go_home,
+                                     empty  -&gt; forage]
+  go_home  = follow(trail, toward: home)
+                                    [arrived -&gt; unload,
+                                     lost    -&gt; search]
+  search   = wander_until(sense Here Home)
+                                    [found  -&gt; unload]
+  unload   = drop &gt;&gt; forage
+}
+
+<span class="c">-- higher order: wrap any behavior with a danger poll</span>
+<span class="k">behavior</span> careful(b: Behavior) =
+  <span class="k">watch</span> danger <span class="k">do</span> { about_face; move <span class="k">else</span> skip } <span class="k">in</span> b
+
+<span class="k">colony</span> {
+  <span class="k">role</span> = start_position()   <span class="c">-- exits: rim, inner, centre</span>
+  rim    -&gt; careful(harvester)
+  inner  -&gt; careful(harvester)
+  centre -&gt; guard_food
+}</code></pre>
+</div>
+</div>
+
+<div class="col">
+<p>The syntax is a sketch. The important decisions are underneath it: exits are part of a behavior's type, the compiler checks that every exit is wired somewhere, markers are named and typed rather than numbered, and nothing in the language implies runtime machinery the ant does not have.</p>
+</div>
+</section>
+
+<section id="functions">
+<h2><span class="n">4</span>Functions for behaviors and strategies</h2>
+<div class="col">
+<p>A function call needs somewhere to keep the return address. On a normal machine that is a stack. An ant has no stack, so the only place a return address can live is the program counter itself. That gives the central rule of MAXI: <b>calling a behavior means making a copy of it</b>, and the copy's state numbers encode where it returns to.</p>
+<p>Seen through continuation-passing style this is natural. A behavior is a function from its exits to an entry state, the same idea as ANTisocial's <code>string -&gt; string -&gt; instr</code>, generalised. Calling <code>step(Ahead)</code> with <code>moved → 40</code> and <code>blocked → 70</code> produces fresh states whose exit edges point at 40 and 70. Called again with different exits, it produces a different copy.</p>
+</div>
+
+<figure>
+<svg viewBox="0 0 760 270" role="img" aria-labelledby="dupT">
+  <title id="dupT">A tail call shares one copy; non-tail calls make one copy per call site</title>
+  <text x="10" y="20" class="big t-m">Tail call: one shared copy</text>
+  <rect class="box" x="10" y="40" width="120" height="40" rx="4"/><text x="70" y="64" text-anchor="middle">forage</text>
+  <rect class="box" x="10" y="140" width="120" height="40" rx="4"/><text x="70" y="164" text-anchor="middle">search</text>
+  <rect class="boxm" x="220" y="90" width="120" height="40" rx="4"/><text x="280" y="114" text-anchor="middle">unload</text>
+  <path class="lnm" d="M130 60 C180 60 180 100 214 106"/><path class="lnm" d="M130 160 C180 160 180 120 214 114"/>
+  <polygon class="dotm" points="220,110 211,105 212,115"/>
+  <text x="155" y="230" class="mut">exits jump into one copy;</text>
+  <text x="155" y="246" class="mut">nothing is left to return to</text>
+
+  <line x1="380" y1="20" x2="380" y2="250" stroke="var(--rule)" stroke-width="1"/>
+
+  <text x="400" y="20" class="big t-a">Non-tail call: a copy per site</text>
+  <rect class="box" x="400" y="40" width="110" height="40" rx="4"/><text x="455" y="64" text-anchor="middle">go_home</text>
+  <rect class="box" x="400" y="140" width="110" height="40" rx="4"/><text x="455" y="164" text-anchor="middle">search</text>
+  <rect class="boxa" x="555" y="40" width="80" height="40" rx="4"/><text x="595" y="58" text-anchor="middle">step</text><text x="595" y="73" text-anchor="middle" class="mut">copy 1</text>
+  <rect class="boxa" x="555" y="140" width="80" height="40" rx="4"/><text x="595" y="158" text-anchor="middle">step</text><text x="595" y="173" text-anchor="middle" class="mut">copy 2</text>
+  <path class="lna" d="M510 54 L549 54"/><polygon class="dota" points="555,54 546,49 546,59"/>
+  <path class="lna" d="M555 70 C530 92 520 92 516 76"/>
+  <path class="lna" d="M510 154 L549 154"/><polygon class="dota" points="555,154 546,149 546,159"/>
+  <path class="lna" d="M555 170 C530 192 520 192 516 176"/>
+  <rect class="box" x="670" y="40" width="80" height="40" rx="4"/><text x="710" y="64" text-anchor="middle">blocked</text>
+  <rect class="box" x="670" y="140" width="80" height="40" rx="4"/><text x="710" y="164" text-anchor="middle">blocked</text>
+  <path class="ln" d="M635 60 L664 60"/><polygon class="doti" points="670,60 661,55 661,65"/>
+  <path class="ln" d="M635 160 L664 160"/><polygon class="doti" points="670,160 661,155 661,165"/>
+  <text x="400" y="230" class="mut">"moved" must return to a different place in each caller,</text>
+  <text x="400" y="246" class="mut">so the return address is which copy the ant is in</text>
+</svg>
+<figcaption>Calls in tail position (an exit that leads straight into another behavior) share one copy, because nothing has to happen afterwards. Calls in the middle of a body are cloned, one copy per distinct set of exit targets.</figcaption>
+</figure>
+
+<div class="col">
+<h3>What a call costs</h3>
+<p>A behavior of <i>s</i> states called from <i>k</i> non-tail sites costs <i>k·s</i> states. Nesting multiplies: a 40-state behavior called from 5 places inside a behavior that is itself called from 4 places costs 800 states. That would be alarming on a 1 KB machine. Against a 10,000-state budget and winning brains of 400 to 1,400 states it is affordable, and two compiler passes recover much of it: tail calls share, and state minimisation (section 6) merges copies whose remaining behaviour is identical. MAXI should still print a size report per behavior, like a linker map, so the cost of an abstraction is visible.</p>
+
+<h3>Recursion, loops and results</h3>
+<p>Tail recursion is a loop and costs nothing. General recursion would need unbounded copies, so MAXI rejects it, except for recursion on a compile-time integer (<code>spiral(n) = …spiral(n-1)…</code>), which simply unrolls. A behavior returns values through its exits: a behavior that "returns a direction" has six exits (or three, relative to the current heading). An exit is a return value encoded in control flow.</p>
+
+<h3>Behaviors versus strategies</h3>
+<p>The two words name two scales of the same mechanism. A <b>behavior</b> is a local skill of 5 to 100 states: step, follow a trail, lay a trail, pick up, surround an enemy, wait. A <b>strategy</b> is a colony-wide plan: which ants take which role, in which phase, and how behaviors hand over to each other. Strategies are where higher-order functions earn their place, because the useful strategy operators all take behaviors as arguments:</p>
+</div>
+
+<div class="tw">
+<table>
+  <thead><tr><th>Combinator</th><th>Meaning</th><th>Compiles to</th></tr></thead>
+  <tbody>
+    <tr><td><code>a &gt;&gt; b</code></td><td>Sequence: run <i>a</i>, then <i>b</i> from its main exit.</td><td>Wire <i>a</i>'s exit to <i>b</i>'s entry. No cost.</td></tr>
+    <tr><td><code>first(a, b, c)</code></td><td>Try each until one succeeds.</td><td>Each failure exit wired to the next entry, as in <code>l_or</code>.</td></tr>
+    <tr><td><code>choose { 2: a; 1: b }</code></td><td>Weighted random pick.</td><td>A chain of <code>Flip</code>: <code>Flip 3</code> to <i>b</i>, otherwise <i>a</i>.</td></tr>
+    <tr><td><code>watch c do h in b</code></td><td>Preempt <i>b</i> with handler <i>h</i> when <i>c</i> holds.</td><td>A poll of <i>c</i> inserted at every loop head (or before every <code>Move</code>) of <i>b</i>. Costs rounds, not just states.</td></tr>
+    <tr><td><code>timeout(n, b)</code></td><td>Give up on <i>b</i> after <i>n</i> iterations.</td><td><i>n</i> copies of <i>b</i>'s loop body, since the counter lives in the program counter.</td></tr>
+    <tr><td><code>roles { … }</code></td><td>Branch by starting position.</td><td>A start-up classifier whose exits enter different strategies.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="col">
+<p><code>watch</code> deserves a remark. The ant has no interrupts, so a subsumption architecture (Brooks's layered behaviors, where "flee" overrides "forage") must be compiled into polling. That is a program transformation, a kind of aspect weaving, and it makes the cost of vigilance explicit: each poll is a <code>Sense</code>, and each <code>Sense</code> is a round.</p>
+</div>
+</section>
+
+<section id="arguments">
+<h2><span class="n">5</span>Multiple arguments, without state</h2>
+<div class="col">
+<p>Since a call is a copy, an argument is whatever makes copies differ. All MAXI arguments are compile-time values, and a call with a new combination of arguments produces a new specialised copy. This is monomorphisation, the way C++ templates or Rust generics work, and it is also partial evaluation: the compiler runs the parts of the program that depend only on the arguments and leaves the rest as ANT.</p>
+<p>Multiple arguments therefore cost nothing at runtime. <code>follow(trail, toward: home)</code> and <code>follow(trail, toward: food)</code> are two copies with different marker tests baked in. Currying works too: <code>follow(trail)</code> is a behavior-valued expression waiting for its second argument, and only the fully applied forms that are actually used produce code. The size cost is the number of distinct tuples used, not the product of the domains.</p>
+</div>
+
+<div class="tw">
+<table>
+  <thead><tr><th>Argument kind</th><th>Domain</th><th>How it compiles</th></tr></thead>
+  <tbody>
+    <tr><td>Direction</td><td><code>Here, Ahead, LeftAhead, RightAhead</code>, or turns</td><td>Becomes the operand of <code>Sense</code>, or a number of <code>Turn</code> instructions.</td></tr>
+    <tr><td>Marker</td><td>a declared marker name</td><td>Resolved to bit numbers by the marker allocator.</td></tr>
+    <tr><td>Small integer</td><td>bounded, e.g. <code>0..30</code></td><td>Unrolls loops and repeats (<code>repeat n { move }</code>).</td></tr>
+    <tr><td>Condition</td><td>a <code>cond</code> expression</td><td>Inlined as a short-circuit chain of <code>Sense</code>.</td></tr>
+    <tr><td>Behavior</td><td>any behavior value</td><td>Inlined, with its exits wired to the caller's targets.</td></tr>
+    <tr><td>Exits (implicit)</td><td>state labels</td><td>The continuation arguments. These are what make two copies of one behavior different.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="col">
+<h3>When the argument is only known at runtime</h3>
+<p>Sometimes a value is genuinely dynamic: "go back the way I came", "follow whichever trail phase is under me". MAXI handles this the way partial evaluators do, by enumerating the possible values and branching into one specialised copy per value. A <code>match</code> on a sensed value becomes a <code>Sense</code> chain whose leaves are the specialisations:</p>
+</div>
+
+<div class="pair">
+<div>
+<p class="lbl maxi">MAXI</p>
+<pre><code><span class="c">-- phase is read from the cell, then fixed per branch</span>
+<span class="k">match</span> trail.here {
+  p0 -&gt; follow_from(p0)
+  p1 -&gt; follow_from(p1)
+  p2 -&gt; follow_from(p2)
+  none -&gt; <span class="k">exit</span> lost
+}
+<span class="c">-- shorthand for the same thing:</span>
+<span class="k">with</span> p = trail.here <span class="k">in</span> follow_from(p)</code></pre>
+</div>
+<div>
+<p class="lbl ant">ANT, with cycle3 on markers 0 and 1</p>
+<pre><code><span class="c">; phase encoding: p0=01, p1=10, p2=11, none=00</span>
+<span class="o">Sense</span> Here 1 2 Marker 0  <span class="c">; 0</span>
+<span class="o">Sense</span> Here 3 4 Marker 1  <span class="c">; 1: bit0 set</span>
+<span class="o">Sense</span> Here 5 6 Marker 1  <span class="c">; 2: bit0 clear</span>
+<span class="c">; 3 -&gt; follow_from(p2) copy</span>
+<span class="c">; 4 -&gt; follow_from(p0) copy</span>
+<span class="c">; 5 -&gt; follow_from(p1) copy</span>
+<span class="c">; 6 -&gt; lost</span></code></pre>
+</div>
+</div>
+
+<div class="col">
+<p>Note that the value never sits anywhere. After two senses the ant is simply in a different copy, and the copy is the value. That is the bridge to the next section: once an argument has been dispatched, it has become state carried by the program counter.</p>
+<p>One more channel exists: a marker in the cell. An ant can write a value and read it back while it stays put, and any ant that walks over that cell later can read it too. That is not argument passing but communication, and MAXI treats it as such (section 7).</p>
+</div>
+</section>
+
+<section id="compile">
+<h2><span class="n">6</span>Static compilation</h2>
+<div class="col">
+<p>MAXI is compiled entirely ahead of time to one ANT file. There is no runtime system, because there is nowhere to put one. The pipeline:</p>
+</div>
+<div class="pipe">
+  <div><b>Parse and resolve</b>Names, imports, marker declarations.</div>
+  <div><b>Check</b>Types, exhaustive exit wiring, marker bit allocation, bounded recursion.</div>
+  <div><b>Expand</b>Inline and specialise every call; build a graph of primitive nodes plus virtual goto nodes.</div>
+  <div><b>Optimise</b>Jump threading, fact propagation, algebraic rewrites, dead states, minimisation.</div>
+  <div class="end"><b>Emit</b>Number states (entry = 0), write <code>.ant</code> and a source map.</div>
+</div>
+
+<div class="col">
+<h3>Things specific to this machine</h3>
+<p><b>No jumps.</b> ANT has no goto, so every virtual goto node must be threaded away by pointing its predecessors at its target. A loop that contains no real instruction, such as <code>loop {}</code>, has nothing to thread to. The compiler must reject it or insert a deliberate one-round pause such as <code>Sense Here Home</code> with both targets equal.</p>
+
+<p><b>Algebraic laws that save rounds.</b> <code>Move</code> fails exactly when the cell ahead is rock or holds an ant, which is exactly <code>blocked(Ahead)</code>. So the compiler may delete a <code>blocked(Ahead)</code> test that leads to the same place as a failing <code>Move</code>. Hand-written ants often test first, then move, and pay up to three extra rounds per step for no information:</p>
+</div>
+
+<div class="pair">
+<div>
+<p class="lbl ant">Naive: test, then move (up to 4 rounds before the step)</p>
+<pre><code><span class="o">Sense</span> Ahead 99 11 Rock     <span class="c">; 10</span>
+<span class="o">Sense</span> Ahead 99 12 Friend   <span class="c">; 11</span>
+<span class="o">Sense</span> Ahead 99 13 Foe      <span class="c">; 12</span>
+<span class="o">Move</span> 40 99                 <span class="c">; 13  moved -&gt; 40, blocked -&gt; 99</span></code></pre>
+</div>
+<div>
+<p class="lbl maxi">After the rewrite (1 round)</p>
+<pre><code><span class="o">Move</span> 40 99                 <span class="c">; 10  same exits</span>
+</code></pre>
+<p style="font-size:15px;color:var(--muted);margin-top:10px">The rewrite only applies when the blocked exit has nothing else to do. If the test guards a <code>Turn</code> (as in <code>step(RightAhead)</code>), the test is what avoids turning for nothing, and it stays.</p>
+</div>
+</div>
+
+<div class="col">
+<p><b>Which facts survive between instructions.</b> Other ants act between any two of your instructions, so a sensed fact may be stale one round later. A compiler that wants to fold repeated tests has to know which facts are stable. The rules fall out of the spec neatly:</p>
+</div>
+
+<div class="tw">
+<table>
+  <thead><tr><th>Fact</th><th>Stable until</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td><code>Rock</code>, <code>Home</code>, <code>FoeHome</code> anywhere</td><td>you <code>Turn</code> or <code>Move</code> (the sensed cell changes)</td><td>Terrain never changes.</td></tr>
+    <tr><td><code>Marker i</code> and <code>Food</code> <i>Here</i></td><td>you <code>Move</code>, or change them yourself</td><td>Only the ant in a cell can mark it or pick up from it, and only one ant fits in a cell.</td></tr>
+    <tr><td>Carrying food (<code>Here FriendWithFood</code>)</td><td>you <code>PickUp</code> or <code>Drop</code></td><td>It is your own <code>has_food</code>.</td></tr>
+    <tr><td><code>Friend</code>, <code>Foe</code>, <code>Food</code>, <code>Marker</code> <i>Ahead</i></td><td>the next round</td><td>Other ants move, mark and pick up between your instructions.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="col">
+<p>A useful consequence: a MAXI condition such as <code>a and b and c</code> is not atomic. It takes up to three rounds, and the world can change while it is evaluated. The language should say so plainly, and the compiler should order the terms by cost and likelihood, cheapest and most decisive first. Simulation statistics can supply the likelihoods, which makes this a profile-guided optimisation.</p>
+
+<p><b>Minimisation.</b> Inlining produces many copies whose remaining behaviour is identical: same instruction, same operands, equivalent successors. Partition refinement (Hopcroft's algorithm, or bisimulation on the labelled graph) merges them. This is the pass that makes cloning cheap in practice, and it is safe because two states with the same future are interchangeable.</p>
+
+<p><b>Timing analysis.</b> Each behavior gets a best and worst case in rounds per iteration, counting 15 for a successful move. "This patrol loop polls for danger every 17 rounds at worst" is the kind of number a strategy designer needs and cannot get from the ANT listing.</p>
+
+<p><b>Budget and determinism.</b> The compiler fails if the result exceeds 10,000 states, and reports states per behavior. Output is deterministic for a given source, so diffs of <code>.ant</code> files stay meaningful in git.</p>
+</div>
+</section>
+
+<section id="state">
+<h2><span class="n">7</span>State</h2>
+<div class="col">
+<p>It is tempting to say ants are stateless and MAXI should be too. That is wrong. An ant has plenty of state; it is just stored in unusual places.</p>
+</div>
+
+<div class="tw">
+<table>
+  <thead><tr><th>Where</th><th>Size</th><th>Readable by the ant?</th><th>Writable?</th></tr></thead>
+  <tbody>
+    <tr><td>Program counter</td><td>10,000 values (about 13.3 bits)</td><td>Implicitly, at zero cost: the code you are in <i>is</i> the value.</td><td>Yes, by jumping, at zero cost.</td></tr>
+    <tr><td>Direction</td><td>6 values</td><td>No.</td><td>Relative only, with <code>Turn</code>.</td></tr>
+    <tr><td>Carrying food</td><td>1 bit</td><td>Yes, <code>Sense Here FriendWithFood</code>, 1 round.</td><td><code>PickUp</code>, <code>Drop</code>.</td></tr>
+    <tr><td>Rest counter</td><td>0 to 14</td><td>No.</td><td>Only by moving.</td></tr>
+    <tr><td>Own markers</td><td>6 bits per cell</td><td>One bit per <code>Sense</code>, any adjacent cell.</td><td>Current cell only.</td></tr>
+    <tr><td>The world</td><td>food, ants, foe markers (1 bit visible)</td><td>By sensing.</td><td>By acting.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="col">
+<h3>How the current instruction carries state</h3>
+<p>Every state number answers two questions at once: "what do I do next?" and "what do I know?". After <code>Sense Ahead 12 30 Food</code>, an ant in state 12 knows there was food ahead and an ant in state 30 knows there was not. Nothing was stored, yet the knowledge persists for as long as the ant stays in that region of code. A program that needs to remember one extra bit through a stretch of code needs two copies of that stretch. A variable with <i>k</i> values is <i>k</i> copies where it is live.</p>
+<p>This memory has a remarkable property: <b>reads and writes cost zero rounds</b>. A read is resolved at compile time (each copy already knows the value), and a write is folded into the next instruction's target. Compare a marker, which costs a round per bit to read and can only be written in the current cell. The program counter is the fastest and most private memory an ant has. Its only cost is code size.</p>
+</div>
+
+<figure>
+<svg viewBox="0 0 760 210" role="img" aria-labelledby="hdgT">
+  <title id="hdgT">The same exit reached with two different headings</title>
+  <rect class="box" x="10" y="80" width="150" height="44" rx="4"/><text x="85" y="100" text-anchor="middle">Sense RightAhead</text><text x="85" y="115" text-anchor="middle" class="mut">blocked?</text>
+  <rect class="box" x="230" y="80" width="120" height="44" rx="4"/><text x="290" y="106" text-anchor="middle">Turn Right</text>
+  <rect class="box" x="420" y="80" width="100" height="44" rx="4"/><text x="470" y="106" text-anchor="middle">Move</text>
+  <rect class="boxm" x="600" y="10" width="150" height="44" rx="4"/><text x="675" y="30" text-anchor="middle">blocked</text><text x="675" y="45" text-anchor="middle" class="mut">heading h</text>
+  <rect class="boxm" x="600" y="150" width="150" height="44" rx="4"/><text x="675" y="170" text-anchor="middle">blocked</text><text x="675" y="185" text-anchor="middle" class="mut">heading h+1</text>
+  <path class="ln" d="M160 102 L224 102"/><polygon class="doti" points="230,102 221,97 221,107"/><text x="170" y="94" class="mut">no</text>
+  <path class="ln" d="M350 102 L414 102"/><polygon class="doti" points="420,102 411,97 411,107"/>
+  <path class="lnm" d="M85 80 C85 32 400 32 594 32"/><polygon class="dotm" points="600,32 591,27 591,37"/><text x="100" y="52" class="mut">yes</text>
+  <path class="lnm" d="M470 124 C470 172 540 172 594 172"/><polygon class="dotm" points="600,172 591,167 591,177"/><text x="480" y="150" class="mut">fails</text>
+</svg>
+<figcaption>In <code>step(RightAhead)</code>, the <code>blocked</code> exit is reached either before or after the turn. If MAXI tracks heading, those are two different states of knowledge. The compiler can either give the behavior two exits, or insert a <code>Turn Left</code> on one path to make them agree.</figcaption>
+</figure>
+
+<div class="col">
+<h3>MAXI variables are sugar for duplication</h3>
+<p>So the question is not whether MAXI can have state, but how much. MAXI allows variables with small finite domains and compiles them by product construction: the code where the variable is live is copied once per value, assignments become jumps between copies, and reads disappear. Liveness analysis keeps the copies local.</p>
+</div>
+
+<div class="pair">
+<div>
+<p class="lbl maxi">MAXI</p>
+<pre><code><span class="k">behavior</span> explore <span class="k">exits</span> found {
+  <span class="k">var</span> heading : Dir6 = <span class="k">static</span>  <span class="c">-- tracked by the compiler</span>
+  <span class="k">var</span> streak  : 0..3 = 0
+  <span class="k">loop</span> {
+    <span class="k">if</span> sense Ahead Food { <span class="k">exit</span> found }
+    move <span class="k">else</span> { turn right; streak = 0; <span class="k">continue</span> }
+    streak = streak + 1
+    <span class="k">if</span> streak == 3 { turn left; streak = 0 }
+  }
+}</code></pre>
+</div>
+<div>
+<p class="lbl">What it costs</p>
+<div class="tw" style="margin:0">
+<table style="min-width:0">
+  <thead><tr><th>Variable</th><th>Copies</th></tr></thead>
+  <tbody>
+    <tr><td><code>streak : 0..3</code></td><td class="num">×4</td></tr>
+    <tr><td><code>heading : Dir6</code></td><td class="num">×6</td></tr>
+    <tr><td>both</td><td class="num">×24</td></tr>
+    <tr><td>dead reckoning <code>dx, dy : -15..15</code></td><td class="num">×961</td></tr>
+  </tbody>
+</table>
+</div>
+<p style="font-size:15px;color:var(--muted);margin-top:10px">A 10-state body with full dead reckoning needs 9,610 states, which is nearly the whole budget. Small counters are cheap; coordinates are not.</p>
+</div>
+</div>
+
+<div class="col">
+<p>Tracking <code>heading</code> statically is worth singling out. The ant cannot sense its direction, but the compiler knows every <code>Turn</code>, so in code where the heading is tracked MAXI can offer absolute directions ("face east") and compile them to the right number of turns. It costs six copies of that region and zero rounds.</p>
+
+<h3>When to replace state with conditions</h3>
+<p>Every piece of state has two cheaper-looking alternatives, and a good MAXI program picks per case:</p>
+<ol>
+  <li><b>Re-sense instead of remembering.</b> "Am I carrying food?" is <code>Sense Here FriendWithFood</code>; "am I home?" is <code>Sense Here Home</code>. This trades a round for a halving of code. It is the right choice when the fact is cheap to sense and rarely needed.</li>
+  <li><b>Duplicate code instead of storing.</b> Write the two cases as two behaviors and wire them separately. This is the same thing as a variable, done by hand, and it is the native form of state on this machine. It is not a hack.</li>
+  <li><b>Write it into the world.</b> Markers are memory that outlives the ant's path and that other ants can read: the Red Team's three-phase directed trails and concentric hexagons around the hill, ANTisocial's 3-bit counter, guard marks around food. Use markers for anything another ant must know.</li>
+</ol>
+<p>The resulting rule of thumb: prefer facts the compiler already knows, then cheap stable senses, then small program-counter variables with short live ranges, and use markers for shared or long-lived information.</p>
+
+<h3>Markers as a typed heap</h3>
+<p>Six bits per cell is a register file, and allocating it is a register allocation problem. MAXI declares markers by name and type (<code>flag</code>, <code>cycle3</code>, <code>counter(3)</code>, <code>enum{…}</code>), and the compiler assigns bit numbers, rejects programs that need more than six bits, and generates the increment and decode logic, such as the cyclic phase arithmetic for trails. Two behaviors that both quietly use marker 2 for different purposes is exactly the bug this prevents.</p>
+</div>
+</section>
+
+<section id="visual">
+<h2><span class="n">8</span>Seeing the program</h2>
+<div class="col">
+<p>A raw state graph does not help. ANTisocial's own graph of its 409-state brain is a hairball, and the Red Team's 1,386 states would be worse. Humans need the program shown at the level they wrote it, and they need the running simulation tied back to that level. Three views, from coarse to fine:</p>
+
+<h3>1. Strategy as a statechart</h3>
+<p>Nodes are behaviors, edges are exits, labelled with the exit name. Roles and phases are nested regions, in the style of Harel statecharts. This is the view for discussing a plan.</p>
+</div>
+
+<figure>
+<pre class="mermaid">
+stateDiagram-v2
+  direction LR
+  [*] --> classify
+  classify --> Harvester: rim / inner
+  classify --> guard_food: centre
+  state Harvester {
+    direction LR
+    forage --> load: found
+    load --> go_home: ok
+    load --> forage: empty
+    go_home --> unload: arrived
+    go_home --> search: lost
+    search --> unload: found
+    unload --> forage
+  }
+  Harvester --> flee: watch danger
+  flee --> Harvester
+</pre>
+<figcaption>The harvester strategy from section 3. Mermaid source like this can be generated directly from MAXI.</figcaption>
+</figure>
+
+<div class="col">
+<h3>2. Behavior as a box with ports</h3>
+<p>Inside a behavior, a flowchart: diamonds for senses, rectangles for actions, and exits drawn as named ports on the box edge. Each node can show its cost in rounds. Because exits are ports, a behavior box can be dropped into a strategy diagram like a component on a circuit board.</p>
+</div>
+
+<figure>
+<svg viewBox="0 0 760 230" role="img" aria-labelledby="boxT">
+  <title id="boxT">The step behavior drawn as a box with one entry port and two exit ports</title>
+  <rect class="boxm" x="120" y="20" width="520" height="190" rx="6" style="fill:none"/>
+  <text x="136" y="42" class="big t-m">step(RightAhead)</text>
+  <text x="624" y="42" text-anchor="end" class="mut">1–5 rounds, +14 rest if moved</text>
+  <circle cx="120" cy="115" r="6" class="dotm"/><text x="20" y="119">entry</text><path class="lnm" d="M60 115 L114 115"/>
+  <polygon class="box" points="230,85 290,115 230,145 170,115"/><text x="230" y="112" text-anchor="middle">blocked</text><text x="230" y="126" text-anchor="middle" class="mut">RA?</text>
+  <path class="ln" d="M126 115 L164 115"/><polygon class="doti" points="170,115 161,110 161,120"/>
+  <rect class="box" x="330" y="96" width="110" height="38" rx="3"/><text x="385" y="119" text-anchor="middle">Turn Right</text>
+  <path class="ln" d="M290 115 L324 115"/><polygon class="doti" points="330,115 321,110 321,120"/><text x="296" y="108" class="mut">no</text>
+  <rect class="box" x="475" y="96" width="80" height="38" rx="3"/><text x="515" y="119" text-anchor="middle">Move</text>
+  <path class="ln" d="M440 115 L469 115"/><polygon class="doti" points="475,115 466,110 466,120"/>
+  <circle cx="640" cy="80" r="6" class="dotm"/><text x="652" y="84">moved</text>
+  <circle cx="640" cy="170" r="6" class="dota"/><text x="652" y="174">blocked</text>
+  <path class="lnm" d="M555 108 C600 108 600 80 634 80"/><text x="568" y="96" class="mut">ok</text>
+  <path class="lna" d="M555 124 C600 124 600 170 634 170"/><text x="566" y="146" class="mut">fail</text>
+  <path class="lna" d="M230 145 C230 190 560 190 634 172"/><text x="240" y="178" class="mut">yes</text>
+</svg>
+<figcaption>Exits are ports on the edge of the box. In the strategy view the box collapses to its name and its ports.</figcaption>
+</figure>
+
+<div class="col">
+<h3>3. The running colony, mapped back to source</h3>
+<p>The compiler should emit a source map next to the <code>.ant</code> file: for each state, the source span and the behavior path that produced it. With that, the Ambiant Arena simulator can show what a human actually wants to know:</p>
+<ul>
+  <li>colour each ant by its current behavior instead of by team only;</li>
+  <li>on hover, the behavior path, e.g. <code>colony › rim › careful › harvester › go_home › follow › step</code>;</li>
+  <li>a stacked chart of how many ants are in each behavior over time, which shows phases and stalls at a glance;</li>
+  <li>a timeline for one selected ant, a strip of behavior names across rounds;</li>
+  <li>marker overlays by declared name (<code>trail</code>, <code>guard</code>) rather than by bit number, with cyclic trails drawn as arrows.</li>
+</ul>
+</div>
+<pre style="max-width:68ch"><code><span class="c">// brain.antmap.json (sketch)</span>
+{ "version": 1, "source": "harvester.maxi",
+  "states": {
+    "0":  { "path": ["colony", "classify"],                      "span": [12, 3, 12, 30] },
+    "41": { "path": ["colony", "rim", "harvester", "go_home", "follow", "step"],
+            "span": [8, 3, 8, 30], "copy": 2 } } }</code></pre>
+</section>
+
+<section id="testing">
+<h2><span class="n">9</span>Testing: exact or statistical</h2>
+<div class="col">
+<p>A game is fully deterministic given the world, the two brains and the random seed. But there is a catch that decides the whole testing strategy: <b>all ants share one random number stream</b>, consumed in ant-id order every round. If one ant executes one more or one fewer <code>Flip</code>, every later draw for every ant shifts. A one-line change anywhere produces a completely different game after a few hundred rounds. Exact traces are therefore excellent for testing tools and small behaviors, and nearly useless for judging strategies.</p>
+</div>
+
+<div class="tw">
+<table>
+  <thead><tr><th>Level</th><th>Kind</th><th>What it checks</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Simulator</td><td>Exact</td><td>Our simulator matches the spec.</td><td>RNG test vector (already passing), round-by-round dumps against a reference implementation such as ANTisocial's, whose dump format matches ours.</td></tr>
+    <tr><td>Compiler</td><td>Exact</td><td>Compiled ANT means what the MAXI source means.</td><td>Differential testing: interpret MAXI directly and run the compiled brain in the same world and seed. Traces must be identical, which also requires that the compiler preserve the order of <code>Flip</code> calls.</td></tr>
+    <tr><td>Static properties</td><td>Exact, world-free</td><td>Invariants of the state graph.</td><td>Model checking with senses as free inputs: every exit reachable, every loop contains an action, <code>Drop</code> only reachable after a positive <code>Home</code> sense, marker bits never shared, size within budget. The graph has at most 10,000 nodes, so this is exhaustive and fast.</td></tr>
+    <tr><td>Behavior</td><td>Exact scenario</td><td>One behavior does its job in a fixed situation.</td><td>A hand-drawn micro-world, one ant, no <code>Flip</code> on the path: <i>"step(RightAhead) in tiny.world from (3,4) exits moved after exactly 5 rounds, facing south-east"</i>.</td></tr>
+    <tr><td>Behavior</td><td>Statistical</td><td>A random behavior performs well enough.</td><td>Many seeds: <i>"wander finds food within 2,000 rounds in at least 90% of 200 runs"</i>, with a confidence bound in the assertion.</td></tr>
+    <tr><td>Strategy</td><td>Statistical</td><td>Version B beats version A.</td><td>Tournaments on contest-style worlds, below.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="col">
+<h3>Statistics for strategies</h3>
+<p>The contest scored by food in the anthill after 100,000 rounds on random 100×100 worlds, with each pair of brains playing both colours. A strategy test should mirror that:</p>
+<ul>
+  <li><b>Paired design.</b> Run A and B on the same worlds, same seeds and same colours against the same opponent pool. Pairing removes the variance due to world layout, which is large.</li>
+  <li><b>Report intervals, not single numbers.</b> Win rate with a Wilson interval; food margin as a mean with a confidence interval. To see a 5-point change in win rate at 95% confidence takes roughly 1.96² × 0.25 / 0.05² ≈ 384 games, so a quick check of 20 games can only reveal large differences.</li>
+  <li><b>Stop early when the answer is clear.</b> A sequential probability ratio test lets a tournament stop once B is clearly better or clearly not.</li>
+  <li><b>Rank many versions together.</b> An Elo or Bradley–Terry rating over a league, as the Red Team did informally with their overnight tournament, guards against non-transitive results (A beats B, B beats C, C beats A), which are common with strategies such as traps.</li>
+  <li><b>Fixed seeds in CI, fresh seeds overnight.</b> Fixed seeds keep the quick suite reproducible; fresh seeds keep it honest.</li>
+</ul>
+<p>Cost is the constraint. A full game is 100,000 rounds for about 180 ants, around 18 million ant steps. Statistical suites need a fast headless simulator, and should use shorter games and smaller worlds for behavior-level questions, keeping full games for strategy decisions.</p>
+</div>
+</section>
+
+<section id="next">
+<h2><span class="n">10</span>Where to start</h2>
+<div class="col">
+<ol>
+  <li><b>A combinator core in JavaScript</b>, next to the existing simulator: behaviors as functions from exit labels to graph fragments, in the ANTisocial style, with named exits. This is MAXI's intermediate representation, and useful on its own.</li>
+  <li><b>The optimiser and emitter</b>: jump threading, the <code>Move</code> rewrite, minimisation, size report, source map.</li>
+  <li><b>Source maps in Ambiant Arena</b>: ants coloured by behavior, behavior path on hover, behavior population chart.</li>
+  <li><b>A headless tournament runner</b> with paired games and intervals.</li>
+  <li><b>MAXI surface syntax</b> last, once the core has shown which constructs pay for themselves.</li>
+</ol>
+</div>
+</section>
+
+<footer>
+  Sources: the ICFP 2004 task description, version 4; the Red Team's <code>antc</code> sources, macros and strategy notes; Martin Jambon's ANTisocial <code>lib.ml</code> and <code>work.ml</code>; the Cambridge "Linepithema humile" brain. All are in the project's references folder. State counts and instruction mixes were measured from the submitted <code>.ant</code> files.
+</footer>
+</main>
+</div>
+<script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs"; mermaid.initialize({ startOnLoad: true, theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "neutral" });</script>
+</body>
+</html>
